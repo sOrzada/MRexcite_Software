@@ -29,7 +29,7 @@ class CalibrateZeroObj:
     def openGUI(self):
         '''Prepares and Opens the GUI or this Class Object.'''
         self.WindowMain = Toplevel()
-        self.WindowMain.iconbitmap(os.path.dirname(__file__) + '\images\S_square_32x32.ico')
+        self.WindowMain.iconbitmap(os.path.dirname(__file__) + '\images\MRexcite_logo.ico.ico')
         self.WindowMain.title('Zero Point Calibration of Modulators')
         self.WindowMain.config(width=1200, height=550)
         self.WindowMain.protocol('WM_DELETE_WINDOW', lambda: self.saveClose())
@@ -178,7 +178,7 @@ class CalibrateLinearity1DObj:
         
         #Open Main Window
         self.WindowMain = Toplevel()
-        self.WindowMain.iconbitmap(os.path.dirname(__file__) + '\images\S_square_32x32.ico')
+        self.WindowMain.iconbitmap(os.path.dirname(__file__) + '\images\MRexcite_logo.ico')
         self.WindowMain.title('Linearity Calibration of Amplifiers')
         self.WindowMain.config(width=1300, height=550)
         self.WindowMain.protocol('WM_DELETE_WINDOW', lambda: self.saveClose())
@@ -215,7 +215,7 @@ class CalibrateLinearity1DObj:
         self.canvasFigurelin = FigureCanvasTkAgg(self.Figurelin, master=self.WindowMain)
         self.canvasFigurelin.get_tk_widget().place(x=500, y=250, anchor='center')
 
-        #Set Timings for Calibration: 1% Duty Cycle, 1ms pulses. This should be long enough for triggered measurements.
+        """ #Set Timings for Calibration: 1% Duty Cycle, 1ms pulses. This should be long enough for triggered measurements.
         MRexcite_Control.MRexcite_System.disable_system()
         MRexcite_Control.MRexcite_System.TimingControl.clock_divider=1000
         MRexcite_Control.MRexcite_System.TimingControl.counter_Tx=10
@@ -239,7 +239,7 @@ class CalibrateLinearity1DObj:
         try:
             MRexcite_Control.MRexcite_System.enable_system() #Here the system is in a safe state and can be started.
         except:
-            print('Error: Could not transmit via SPI!')
+            print('Error: Could not transmit via SPI!') """
 
         #Update
         self.update()
