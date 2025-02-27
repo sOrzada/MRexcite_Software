@@ -13,7 +13,8 @@ import csv
 
 import scipy.interpolate
 
-class MRexcite_SystemObj:
+### Main Class ###
+class MRexcite_SystemObj: #This Object will contain all other hardware specific objects.
     '''Here we combine all classes to have a single object for the MRexcite System.'''
     def __init__(self,config):
 
@@ -83,7 +84,7 @@ class ControlByteObj: #Contains the control bits. Select the state and add for c
         return int(c)
 
 ### Hardware Representation Classes ###
-class USB2SPIObj: #Contains all data and methods for USB2SPI hardware.
+class USB2SPIObj: #Contains all data and methods for USB2SPI hardware. (Communication between PC and MRexcite Hardware)
     '''This class contains all methods to send bit streams through a FT4222 in SPI mode.'''
     def __init__(self,config):
         
@@ -379,7 +380,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
         data=bytes(byte_stream)    
         return data
 
-class EnableObj:
+class EnableObj: #Contains all data and methods for the Enable Board. (Enable Amplifiers, switch Exciter between systems)
     '''This Object represents the Enable Board. \n
     It enables the two amplifier racks (switches the power distribution on).\n
     It sets the RF switch either to the Siemens System or to MRexcite.'''
@@ -427,8 +428,7 @@ class EnableObj:
         byte_stream=byte_stream+byte_stream_add + [CB.prog,0,0,0]
         return bytes(byte_stream)
 
-
-class OpticalObj:
+class OpticalObj: #Contains all data and methods for the Optical Board (controls Pre-amps, T/R switches, Local/Bodycoil reception)
     '''This Object represents the Optical Board which controls Pre-Amp states, detuning, T/R switches and local/body coil reception.'''
     pre_amp_on=0 #if this is 1, Pre-amps are switched on during Rx
     pre_amp_on_always=0 #if this in 1, Pre-amps are always on
@@ -451,8 +451,7 @@ class OpticalObj:
                      CB.prog,0,0,0]
         return bytes(byte_stream)
     
-
-class RFprepObj:
+class RFprepObj: #Contains all data and methods for the RF Preparation Board. (Prescales Exciter signal for Modulators)
     '''This Object represents the RF Preparation Board, which sets the gain of the exciter Signal.'''
     def __init__(self,config):
        self.address = int(config['RF_prep_Module']['address'])
@@ -498,15 +497,73 @@ class RFprepObj:
                      CB.prog,0,0,0]
         return bytes(byte_stream)
     
-class TriggerObj:
+class TriggerObj: #Contains all data and methods for the Trigger Board. (Sampling rates for Modulators).
     '''This Object represents the hardware of the Trigger Board.\n
     The Trigger Board detects OSCbits from the MRI system and either transmits them to the modulators, or starts a gated oscillator to produce a user defined number of trigger pulses at a user defined sampling rate.'''
     osc_select=0 #Selects one of two OSCbit inputs
     gen_select=0 #Selects whether OSCbit is fed through (0), or the Trigger generator is used (1).
-    clock_devider=10 #Clock devider. The original clock (200MHz) is reduced to 10MHz and then devided by this number to provide the sampling frequency for the RF pulses in the modulators.
+    clock_divider=10 #Clock devider. The original clock (200MHz) is reduced to 10MHz and then devided by this number to provide the sampling frequency for the RF pulses in the modulators.
     clock_counter=100 #Number of clock ticks played out in a row after an OSCbit was detected.
+    sampling_rate=10e6/clock_divider
+    
     def __init__(self,config):
-        pass
+        self.address = int(config['Trigger_Module']['address'])
+
+    def __setattr__(self, name, value):
+        '''This function makes sure that sampling_rate is changed whenever clock_divider is changed.'''
+        self.__dict__[name]=value
+        if name == 'clock_divider':
+            self.calculate_sampling_rate()
+
+    def set_OSC0(self):
+        '''Sets the input to OSCbit0 of the MRI System'''
+        self.osc_select=0
+
+    def set_OSC1(self):
+        '''Sets the input to OSCbit1 of the MRI System'''
+        self.osc_select=1
+
+    def set_OSC_feedthrough(self):
+        '''Sets the Trigger Board to "Feedthrough" mode, where the incoming OSCbit triggers a new modulator state.'''
+        self.gen_select=0
+
+    def set_Generate_Sampling(self):
+        '''Sets the Trigger Board to "Generate Triggers" mode, where the incomming OSCbit starts a user defined stream of trigger pulses for the Modulators.'''
+        self.gen_select=1
+
+    def set_clock_1MHz(self):
+        '''Sets the clock to 1MHz sampling rate'''
+        self.clock_divider=10
+
+    def set_clock_100kHz(self):
+        '''Sets the clock to 100kHz sampling rate'''
+        self.clock_divider=100
+
+    def set_clock(self,freq_in):
+        '''Sets the device to a user defined sampling rate.\n
+        Automatically makes sure that the sampling rate is sensible:\n
+        It sets the clock divider to the nearest feasible integer.'''
+        self.clock_divider=int(np.round(10e6/freq_in))
+        if self.clock_divider>255:
+            self.clock_divider = 255
+        elif self.clock_divider <1:
+            self.clock_divider = 1
+
+    def calculate_sampling_rate(self):
+        self.sampling_rate = 10e6/self.clock_divider
+        print('Sampling Rate: ' + str(self.sampling_rate/1000) + ' kHz')
+
+    def return_byte_stream(self):
+        CB=ControlByteObj()
+        byte_stream = [CB.prog,0,0,0,
+                       CB.prog+CB.chip0,self.address,self.osc_select+2*self.gen_select,self.clock_divider,
+                       CB.prog+CB.chip0+CB.we,self.address,self.osc_select+2*self.gen_select,self.clock_divider, #Write clock divider and OSC/GEN select
+                       CB.prog+CB.chip0,self.address,self.osc_select+2*self.gen_select,self.clock_divider,
+                       CB.prog+CB.chip1,self.address,0,self.clock_counter,
+                       CB.prog+CB.chip1+CB.we,self.address,0,self.clock_counter, #Write clock counter
+                       CB.prog+CB.chip1,self.address,0,self.clock_counter,
+                       CB.prog,0,0,0]
+        return bytes(byte_stream)
 
 ### Load config file ###
 config=configparser.ConfigParser()
