@@ -16,6 +16,7 @@ import scipy.interpolate
 ### Main Class ###
 class MRexcite_SystemObj: #This Object will contain all other hardware specific objects.
     '''Here we combine all classes to have a single object for the MRexcite System.'''
+    Unblank_Status=0
     def __init__(self,config):
 
         if config['DEFAULT']['Modulator_Module'] == 'true':
@@ -45,6 +46,7 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
         except:
             pass
     def enable_system(self):
+        self.Unblank_Status=1
         self.SPI.send_bitstream(bytes([128,0,0,0]))
     def setup_system(self):
         self.TimingControl.trigger_off() #Trigger needs to be switched off before programming Modulators, because trigger is used to select adress.
@@ -53,6 +55,7 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
         bytestream = bytestream + self.SignalSource.return_byte_stream() + self.Modulator.return_byte_stream() + self.TimingControl.return_byte_stream() + bytes([0,0,0,0])
         self.SPI.send_bitstream(bytestream)    
     def disable_system(self):
+        self.Unblank_Status=0
         try:
             self.SPI.send_bitstream(bytes([0,0,0,0]))
         except:
@@ -459,6 +462,7 @@ class RFprepObj: #Contains all data and methods for the RF Preparation Board. (P
        self.gain_low = int(config['RF_prep_Module']['gain_low'])
        self.maxgain = int(config['RF_prep_Module']['maxgain'])
        self.gain_data=0
+       self.set_gain_low()
 
     def set_gain(self,gain_in:int):
         '''This function sets the gain for the exciter signal.\n
@@ -472,7 +476,7 @@ class RFprepObj: #Contains all data and methods for the RF Preparation Board. (P
             gain_in=self.maxgain
         
         if gain_in <= 0:
-            self.gain_data=gain_in
+            self.gain_data=abs(gain_in)
         else:
             self.gain_data=self.maxgain-gain_in + 128
         
@@ -480,11 +484,13 @@ class RFprepObj: #Contains all data and methods for the RF Preparation Board. (P
         '''Sets gain for high signal mode (Full modulation by MRexcite).\n
         The gain value for high gain is set in the MRexcite_config.ini'''
         self.set_gain(self.gain_high)
+        self.Status='Full'
 
     def set_gain_low(self):
         '''Sets gain for low signal mode (MRexcite modulation on top of modulated MR signal).\n
         The gain value for low gain is set in the MRexcite_config.ini'''
         self.set_gain(self.gain_low)
+        self.Status='Hybrid'
 
     def return_byte_stream(self):
         '''Returns a byte stream that can be used to programm the current state into the hardware.'''
