@@ -291,20 +291,24 @@ class MainGUIObj:
         pass
 
     def end_Software(self): # This is important to ensure that we switch back to Siemens Mode when we end this software.
-        '''This function safely resets the MRexcite System to Siemens mode. (TODO!)'''
-        print('We need to shut down the System!!!')
+        '''This function safely resets the MRexcite System to Siemens mode and ends the software.'''
+        MRexcite_Control.MRexcite_System.EnableModule.RF_Switch=0
+        self.update_status()
+        self.MainWindow.update() #This is necessary. Otherwise the user does not see the changes before the window closes.
+        sleep(0.5)
         self.MainWindow.destroy()
 
 class TriggerSelectObj:
     def __init__(self):
         
+        #Main Anchor Position for Controls
         posX=120
         posY=100
 
         #Input Window
         self.WindowMain = Toplevel()
-        self.WindowMain.title('MRexcite Control')
-        self.WindowMain.config(width=300, height=300)
+        self.WindowMain.title('Set Trigger')
+        self.WindowMain.config(width=250, height=220)
         self.WindowMain.resizable(False,False)
         self.WindowMain.iconbitmap(os.path.dirname(__file__) + r'\images\MRexcite_logo.ico')
         self.WindowMain.protocol('WM_DELETE_WINDOW', self.closeWindow)
@@ -322,10 +326,6 @@ class TriggerSelectObj:
         TriggerCountPushButton=Button(self.WindowMain, text='Apply',command=self.closeWindow)
         TriggerCountPushButton.config(width=10,height=2)
         TriggerCountPushButton.place(x=posX,y=posY+50,anchor=CENTER)
-
-
-
-        
 
     def closeWindow(self):
         triggerInt=self.TriggerCountInputVar.get()
