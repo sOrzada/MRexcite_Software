@@ -55,6 +55,13 @@ class MainGUIObj:
         PulseMenu.add_command(label='Set simple TIAMO', command=self.setTIAMO)
         PulseMenu.add_separator()
         PulseMenu.add_command(label='Pulse Info', command=self.PulseInfo)
+
+        TriggerMenu=Menu(MenuBar, tearoff=0)
+        MenuBar.add_cascade(label='Trigger', menu=TriggerMenu)
+        TriggerMenu.add_command(label='Reset Trigger', command=self.TriggerReset)
+        TriggerMenu.add_command(label='Send Trigger', command=self.TriggerSend)
+        TriggerMenu.add_command(label='Go to Position...', command=self.TriggerGoTo)
+
         
         ConfigurationMenu=Menu(MenuBar, tearoff = 0)
         MenuBar.add_cascade(label='Configuration', menu=ConfigurationMenu)
@@ -234,9 +241,7 @@ class MainGUIObj:
                     
 
         self.status_text_box.insert('1.0',status_text)
-        self.status_text_box.config(state=DISABLED)
-        
-        
+        self.status_text_box.config(state=DISABLED)    
 
     def openFile(self): #Open a file that contains all settings and pulses from a previous session.
         pass
@@ -256,6 +261,16 @@ class MainGUIObj:
 
     def PulseInfo(self): #Provides Information on loaded pulse.
         pass
+
+    def TriggerReset(self):
+        MRexcite_Control.MRexcite_System.TriggerReset()
+    def TriggerSend(self):
+        MRexcite_Control.MRexcite_System.TriggerSend()
+    def TriggerGoTo(self):
+        
+        triggerSelectWindow=TriggerSelectObj()
+        triggerSelectWindow.WindowMain.grab_set()
+        triggerSelectWindow.WindowMain.wait_window(triggerSelectWindow.WindowMain)
 
     def settingsGeneral(self): #General settings for the System.
         pass
@@ -279,6 +294,43 @@ class MainGUIObj:
         '''This function safely resets the MRexcite System to Siemens mode. (TODO!)'''
         print('We need to shut down the System!!!')
         self.MainWindow.destroy()
+
+class TriggerSelectObj:
+    def __init__(self):
+        
+        posX=120
+        posY=100
+
+        #Input Window
+        self.WindowMain = Toplevel()
+        self.WindowMain.title('MRexcite Control')
+        self.WindowMain.config(width=300, height=300)
+        self.WindowMain.resizable(False,False)
+        self.WindowMain.iconbitmap(os.path.dirname(__file__) + r'\images\MRexcite_logo.ico')
+        self.WindowMain.protocol('WM_DELETE_WINDOW', self.closeWindow)
+        
+        #Input Entry
+        self.TriggerCountInputVar=IntVar()
+        TriggerCountEntry=Entry(self.WindowMain, textvariable=self.TriggerCountInputVar,width=10)
+        TriggerCountEntry.place(x=posX,y=posY,anchor=CENTER)
+
+        #Label
+        TriggerCountLabel=Label(self.WindowMain, text='Number of Triggers to send:')
+        TriggerCountLabel.place(x=posX,y=posY-30,anchor=CENTER)
+        
+        #Push Button
+        TriggerCountPushButton=Button(self.WindowMain, text='Apply',command=self.closeWindow)
+        TriggerCountPushButton.config(width=10,height=2)
+        TriggerCountPushButton.place(x=posX,y=posY+50,anchor=CENTER)
+
+
+
+        
+
+    def closeWindow(self):
+        triggerInt=self.TriggerCountInputVar.get()
+        MRexcite_Control.MRexcite_System.TriggerGoTo(triggerInt)
+        self.WindowMain.destroy()
 
 
 MainGUI=MainGUIObj()

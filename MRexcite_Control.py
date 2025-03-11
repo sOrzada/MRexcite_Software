@@ -60,6 +60,41 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
             self.SPI.send_bitstream(bytes([0,0,0,0]))
         except:
             print('Error: Could not transmit via SPI!')
+    def TriggerSend(self):
+        '''Sends one trigger pulse for Modulators to system.'''
+        CP=ControlByteObj()
+        bitstream=[CP.enable*self.Unblank_Status,0,0,0, 
+                   CP.enable*self.Unblank_Status+CP.clock,0,0,0,
+                   CP.enable*self.Unblank_Status,0,0,0]
+        try:
+            self.SPI.send_bitstream(bytes(bitstream))
+        except:
+            print('Error: Could not transmit via SPI!')
+    def TriggerReset(self):
+        '''Sends a reset command to the counter of the Modulators.'''
+        CP=ControlByteObj()
+        bitstream=[CP.enable*self.Unblank_Status,0,0,0, 
+                   CP.enable*self.Unblank_Status+CP.reset,0,0,0,
+                   CP.enable*self.Unblank_Status,0,0,0]
+        try:
+            self.SPI.send_bitstream(bytes(bitstream))
+        except:
+            print('Error: Could not transmit via SPI!')
+    def TriggerGoTo(self,trigger:int):
+        '''Sets Modulator counter to provided position.'''
+        CP=ControlByteObj()
+        bitstream=[CP.enable*self.Unblank_Status,0,0,0, 
+                   CP.enable*self.Unblank_Status+CP.reset,0,0,0,
+                   CP.enable*self.Unblank_Status,0,0,0]
+        for a in range(trigger):
+            bitstream=bitstream + [CP.enable*self.Unblank_Status,0,0,0, 
+                                    CP.enable*self.Unblank_Status+CP.clock,0,0,0,
+                                    CP.enable*self.Unblank_Status,0,0,0]
+            
+        try:
+            self.SPI.send_bitstream(bytes(bitstream))
+        except:
+            print('Error: Could not transmit via SPI!')
 
 ### Helper Classes ###
 class PulseObj:
