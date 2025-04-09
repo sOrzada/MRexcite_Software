@@ -13,6 +13,8 @@ import re
 import MRexcite_Calibration
 import pickle
 from PIL import Image, ImageTk
+from threading import Thread
+from random import randint
 
 ### Define GUI ###
 class MainGUIObj:
@@ -26,13 +28,14 @@ class MainGUIObj:
         self.MainWindow.protocol('WM_DELETE_WINDOW', self.end_Software) #This is important: If the software is ended, we need to call a function that resets to a safe state (Siemens)
         self.menu_bar()
         self.place_buttons()
-        self.status_text_box = scrolledtext.ScrolledText(self.MainWindow, width = 55, height =30)
-        self.status_text_box.place(x=700,y=60)
-
         
-
-
-
+        self.status_text_box = scrolledtext.ScrolledText(self.MainWindow, width = 55, height =30)
+        self.status_text_box.place(x=700,y=50)
+        self.SARDisplay=SARSupervisionDisplyObj(self.MainWindow)
+        self.SARDisplay.place_SAR_info(400,150)
+        self.SARthread=Thread(target=self.SARDisplay.getSAR,args=[],daemon=TRUE)
+        self.SARthread.start()
+        
         self.update_status()
 
     def menu_bar(self): #Menu Bar for main window.
@@ -113,7 +116,7 @@ class MainGUIObj:
         self.LabelShim = Label(self.MainWindow, textvariable=self.displayShim)
         self.LabelShim.place (x=150,y=475, anchor = 'w')
 
-
+    
     def switch_system(self):
         '''This function allows for switching between Siemens and MRexcite'''
         if MRexcite_Control.MRexcite_System.EnableModule.RF_Switch==0:
@@ -147,7 +150,7 @@ class MainGUIObj:
 
     def update_status(self):
         '''This function updates the text and the appearance of the switches. We do this here to make loading a system state easy.'''
-        ### TODO: Update hardware when this funtion is called!
+        
         
         #Prepare Text Box
         self.status_text_box.config(state=NORMAL)
@@ -295,10 +298,68 @@ class MainGUIObj:
         MRexcite_Control.MRexcite_System.EnableModule.RF_Switch=0
         self.update_status()
         self.MainWindow.update() #This is necessary. Otherwise the user does not see the changes before the window closes.
-        sleep(0.5)
+        sleep(0.5) #This wait time is used to give the users time to realize, that everything is set back to Siemens.
         self.MainWindow.destroy()
 
+class SARSupervisionDisplyObj:
+    def __init__(self,MainWindow):
+        self.MainWindow=MainWindow
+    
+    def place_SAR_info(self,x_in,y_in):
+        '''Defines the Box and labels for SAR Supervision display.\nx_in and y_in are the coordinates of the upper left corner.'''
+        frameWidth=250
+
+        self.FrameSAR = Frame(self.MainWindow,width=frameWidth,height=230,bd=5, relief=RIDGE)
+        self.FrameSAR.place(x=x_in,y=y_in)
+
+        self.LabelSARTitle = Label(self.MainWindow,width=20,height=1,text='SAR Supervision',font=('Helvetica',14))
+        self.LabelSARTitle.place(x=x_in+frameWidth/2,y=y_in+30,anchor=CENTER)
+
+        # 10s Average:
+        self.LabelSAR10s = Label(self.MainWindow, width=8,height=1,text='0 %',relief='sunken',font=('Helvetica',14),background='#00FF00')
+        labelSAR10sText = Label(self.MainWindow,width=8,height=1,text='SAR 10s:',font=('Helvetica',14))
+        labelSAR10sText.place(x=x_in+frameWidth/2-5,y=y_in+60,anchor=NE)
+        self.LabelSAR10s.place(x=x_in+frameWidth/2+5,y=y_in+60,anchor=NW)
+
+        # 6min Average
+        self.LabelSAR6min = Label(self.MainWindow, width=8,height=1,text='0 %',relief='sunken',font=('Helvetica',14),background='#00FF00')
+        labelSAR6minText = Label(self.MainWindow,width=8,height=1,text='SAR 6min:',font=('Helvetica',14))
+        labelSAR6minText.place(x=x_in+frameWidth/2-5,y=y_in+110,anchor=NE)
+        self.LabelSAR6min.place(x=x_in+frameWidth/2+5,y=y_in+110,anchor=NW)
+
+        #Power
+        self.LabelSARPower = Label(self.MainWindow,width=8,height=1,text='0 W',relief='sunken',font=('Helvetica',14))
+        labelSARPowerText=Label(self.MainWindow,width=8,height=1,text='Power:',font=('Helvetica',14))
+        labelSARPowerText.place(x=x_in+frameWidth/2-5,y=y_in+160,anchor=NE)
+        self.LabelSARPower.place(x=x_in+frameWidth/2+5,y=y_in+160,anchor=NW)
+    
+    def update_SAR(self,SAR10s,SAR6min,power):
+        self.LabelSAR10s.config(text=str(round(SAR10s))+' %')
+        self.LabelSAR6min.config(text=str(round(SAR6min))+' %')
+        self.LabelSARPower.config(text=str(power)+' W')
+        if SAR10s>100:
+            self.LabelSAR10s.config(background='#FF0000')
+        else:
+            self.LabelSAR10s.config(background='#00FF00')
+
+        if SAR6min>100:
+            self.LabelSAR6min.config(background='#FF0000')
+        else:
+            self.LabelSAR6min.config(background='#00FF00')
+    
+    def getSAR(self):
+        while TRUE:
+            #The following lines are a placeholder until we implement TCP/IP communication with the SAR supervision.
+            SAR10s=randint(0,150)
+            SAR6min=randint(0,150)
+            SARpower=randint(0,1000)
+            self.update_SAR(SAR10s,SAR6min,SARpower)
+            sleep(1)
+
+
+
 class TriggerSelectObj:
+    '''Class for Window for selecting number of Triggers to be sent'''
     def __init__(self):
         
         #Main Anchor Position for Controls
