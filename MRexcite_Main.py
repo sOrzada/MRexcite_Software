@@ -35,6 +35,7 @@ class MainGUIObj:
         self.SARDisplay.place_SAR_info(400,150)
         self.SARthread=Thread(target=self.SARDisplay.getSAR,args=[],daemon=TRUE)
         self.SARthread.start()
+        self.AdvancedUser=AdvancedUserObj()
         
         self.update_status()
 
@@ -68,6 +69,8 @@ class MainGUIObj:
         
         ConfigurationMenu=Menu(MenuBar, tearoff = 0)
         MenuBar.add_cascade(label='Configuration', menu=ConfigurationMenu)
+        ConfigurationMenu.add_command(label='Advanced User', command=self.passwordAdvancedUser)
+        ConfigurationMenu.add_separator()
         ConfigurationMenu.add_command(label='General Settings', command=self.settingsGeneral)
         ConfigurationMenu.add_separator()
         ConfigurationMenu.add_command(label = 'Zero Offset Calibration', command = self.calibrateSystemZero)
@@ -156,6 +159,8 @@ class MainGUIObj:
         self.status_text_box.config(state=NORMAL)
         self.status_text_box.delete('1.0',END)
         status_text='Current status of system:\n\n'
+        if self.AdvancedUser.advancedUseEnabled==TRUE:
+            status_text=status_text + 'Advanced User Enabled. BE CAREFUL!\n\n'
 
         #System State. This MUST come first, otherwise the status of ButtonRxSelect and ButtonArmUnblank will be wrong!
         if MRexcite_Control.MRexcite_System.EnableModule.RF_Switch==1:
@@ -293,6 +298,13 @@ class MainGUIObj:
     def showInfo(self):
         pass
 
+    def passwordAdvancedUser(self):
+        self.AdvancedUser.openGUI()
+        self.AdvancedUser.WindowPassword.grab_set()
+        self.AdvancedUser.WindowPassword.focus()
+        self.AdvancedUser.WindowPassword.wait_window(self.AdvancedUser.WindowPassword)
+        self.update_status()
+
     def end_Software(self): # This is important to ensure that we switch back to Siemens Mode when we end this software.
         '''This function safely resets the MRexcite System to Siemens mode and ends the software.'''
         MRexcite_Control.MRexcite_System.EnableModule.RF_Switch=0
@@ -354,9 +366,55 @@ class SARSupervisionDisplyObj:
             SAR6min=randint(0,150)
             SARpower=randint(0,1000)
             self.update_SAR(SAR10s,SAR6min,SARpower)
-            sleep(1)
+            sleep(0.5)
 
+class GeneralSettingsObj:
+    '''Class for Window for general settings.'''
+    def __init__(self):
 
+        #Input Window for general settings
+        self.WindowMain = Toplevel()
+        self.WindowMain.title('General Settings')
+        self.WindowMain.config(width=600, height=500)
+        self.WindowMain.resizable(False,False)
+        self.WindowMain.iconbitmap(os.path.dirname(__file__) + r'\images\MRexcite_logo.ico')
+        self.WindowMain.protocol('WM_DELETE_WINDOW', self.closeWindow)
+
+        
+
+    def closeWindow(self):
+        self.advancedUseEnabled=FALSE
+        self.WindowMain.destroy()
+
+class AdvancedUserObj:
+    '''Class for enabling Advanced User'''
+    password = 'meduser1' #This is not a real password. It is just a low key way to keep users away from stuff they normally should not use. (Ask Siemens about that *lol*) 
+    advancedUseEnabled=FALSE
+    def __init__(self):
+        pass
+    def openGUI(self):
+        #Password Entry for advanced usage
+        self.WindowPassword = Toplevel()
+        self.WindowPassword.title('Enter Password')
+        self.WindowPassword.config(width=200, height=100)
+        self.WindowPassword.resizable(False,False)
+        self.WindowPassword.iconbitmap(os.path.dirname(__file__) + r'\images\MRexcite_logo.ico')
+        self.WindowPassword.protocol('WM_DELETE_WINDOW', self.closeWindow)
+        self.VarInputPassword = StringVar()
+        self.EntryPassword = Entry(self.WindowPassword,show='*', textvariable=self.VarInputPassword,width=10)
+        self.EntryPassword.place(x=100,y=30,anchor=CENTER)
+        self.ButtonPassword = Button(self.WindowPassword,text='Enter', command=self.closeWindow)
+        self.ButtonPassword.place(x=100,y=60,anchor=CENTER)
+    def closeWindow(self):
+        passwordEntered=self.VarInputPassword.get()
+        if passwordEntered == self.password:
+            self.advancedUseEnabled=TRUE
+            print('Password correct. Enble Advanced User.')
+        else:
+            self.advancedUseEnabled=FALSE
+            print('Wrong password.')
+        
+        self.WindowPassword.destroy()
 
 class TriggerSelectObj:
     '''Class for Window for selecting number of Triggers to be sent'''
