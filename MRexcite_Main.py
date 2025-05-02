@@ -36,7 +36,7 @@ class MainGUIObj:
         self.SARthread=Thread(target=self.SARDisplay.getSAR,args=[],daemon=TRUE)
         self.SARthread.start()
         self.AdvancedUser=AdvancedUserObj()
-        
+        self.GeneralSettingsGUI=GeneralSettingsObj()
         self.update_status()
 
     def menu_bar(self): #Menu Bar for main window.
@@ -69,7 +69,7 @@ class MainGUIObj:
         
         ConfigurationMenu=Menu(MenuBar, tearoff = 0)
         MenuBar.add_cascade(label='Configuration', menu=ConfigurationMenu)
-        ConfigurationMenu.add_command(label='Advanced User', command=self.passwordAdvancedUser)
+        ConfigurationMenu.add_command(label='Advanced User', command=self.enableAdvancedUser)
         ConfigurationMenu.add_separator()
         ConfigurationMenu.add_command(label='General Settings', command=self.settingsGeneral)
         ConfigurationMenu.add_separator()
@@ -231,16 +231,12 @@ class MainGUIObj:
 
         
         #Write everything but RF-Pulse to hardware. (We do not write the RF pulse here, as this can take long and the user shouldn't wait 3s after clicking "unblank")
-        bytestream_trigger = MRexcite_Control.MRexcite_System.TriggerModule.return_byte_stream()
-        bytestream_optical = MRexcite_Control.MRexcite_System.OpticalModule.return_byte_stream()
-        bytestream_RFprep = MRexcite_Control.MRexcite_System.RFprepModule.return_byte_stream()
-        bytestream_enable = MRexcite_Control.MRexcite_System.EnableModule.return_byte_stream()
-        bytestream=bytestream_trigger+bytestream_optical+bytestream_RFprep+bytestream_enable
-        try:
-            MRexcite_Control.MRexcite_System.SPI.send_bitstream(bytestream)
-        except:
+        checkSPI=MRexcite_Control.MRexcite_System.SetSystemState()
+        if checkSPI==0:
             print('Could not send via SPI!')
             status_text= status_text + '\n\n\n\t***!!!Could not connect to SPI!!!***'
+
+                
         if MRexcite_Control.MRexcite_System.Unblank_Status==1:
             try:
                 MRexcite_Control.MRexcite_System.enable_system()
@@ -275,13 +271,18 @@ class MainGUIObj:
     def TriggerSend(self):
         MRexcite_Control.MRexcite_System.TriggerSend()
     def TriggerGoTo(self):
-        
         triggerSelectWindow=TriggerSelectObj()
         triggerSelectWindow.WindowMain.grab_set()
         triggerSelectWindow.WindowMain.wait_window(triggerSelectWindow.WindowMain)
 
     def settingsGeneral(self): #General settings for the System.
-        pass
+        if self.AdvancedUser.check()==TRUE:
+            self.GeneralSettingsGUI.openGUI()
+            self.GeneralSettingsGUI.WindowMain.focus()
+            self.GeneralSettingsGUI.WindowMain.wait_window(self.GeneralSettingsGUI.WindowMain)
+            self.update_status()
+        else:
+            pass
 
     def calibrateSystemZero(self): #Calibration of the Zero point of the Modulators
         pass
@@ -298,10 +299,10 @@ class MainGUIObj:
     def showInfo(self):
         pass
 
-    def passwordAdvancedUser(self):
+    def enableAdvancedUser(self):
         self.AdvancedUser.openGUI()
         self.AdvancedUser.WindowPassword.grab_set()
-        self.AdvancedUser.WindowPassword.focus()
+        
         self.AdvancedUser.WindowPassword.wait_window(self.AdvancedUser.WindowPassword)
         self.update_status()
 
@@ -371,7 +372,8 @@ class SARSupervisionDisplyObj:
 class GeneralSettingsObj:
     '''Class for Window for general settings.'''
     def __init__(self):
-
+        pass
+    def openGUI(self):
         #Input Window for general settings
         self.WindowMain = Toplevel()
         self.WindowMain.title('General Settings')
@@ -380,10 +382,134 @@ class GeneralSettingsObj:
         self.WindowMain.iconbitmap(os.path.dirname(__file__) + r'\images\MRexcite_logo.ico')
         self.WindowMain.protocol('WM_DELETE_WINDOW', self.closeWindow)
 
+        #RF switch state:
+        self.SwitchState=IntVar()
+        self.SwitchState.set(MRexcite_Control.MRexcite_System.EnableModule.RF_Switch) #Get System State and apply to variable
+        checkbox_SwitchState = Checkbutton(self.WindowMain, text='RF to MRexcite',variable=self.SwitchState,onvalue=1,offvalue=0)
+        checkbox_SwitchState.place(x=30,y=25,anchor=W)
         
+        #Amplifier States:
+        self.AmpState1=IntVar()
+        self.AmpState2=IntVar()
+        self.AmpState1.set(MRexcite_Control.MRexcite_System.EnableModule.Amps1) #Get System State and apply to variable
+        self.AmpState2.set(MRexcite_Control.MRexcite_System.EnableModule.Amps2) #Get System State and apply to variable
+        checkbox_AmpState1 = Checkbutton(self.WindowMain,text='Amplifiers 1-16',variable=self.AmpState1,onvalue=1,offvalue=0)
+        checkbox_AmpState2 = Checkbutton(self.WindowMain,text='Amplifiers 17-32',variable=self.AmpState2,onvalue=1,offvalue=0)
+        checkbox_AmpState1.place(x=30,y=75,anchor=W)
+        checkbox_AmpState2.place(x=30,y=100,anchor=W)
+
+        #RF Preparation State:
+        self.Gain = IntVar()
+        self.Gain.set(MRexcite_Control.MRexcite_System.RFprepModule.gain) #Get gain from system and apply to variable
+        self.Entry_Gain = Entry(self.WindowMain, textvariable=self.Gain,width=6)
+        self.Entry_Gain.place(x=30, y=150, anchor=W)
+        self.Label_Gain = Label(self.WindowMain,text='RF Preparation Gain')
+        self.Label_Gain.place(x=80,y=150, anchor=W)
+
+        #Trigger Module State:
+        xpos=280
+        ypos=50
+        self.triggerMode=IntVar()
+        self.clockDivider=IntVar()
+        self.triggerCount=IntVar()
+        
+        LabelFrame_Trigger = LabelFrame(self.WindowMain,text='TriggerModule',width=200,height=120)
+        LabelFrame_Trigger.place(x=xpos-20,y=ypos-35,anchor=NW)
+
+        self.triggerMode.set(MRexcite_Control.MRexcite_System.TriggerModule.gen_select)
+        self.clockDivider.set(MRexcite_Control.MRexcite_System.TriggerModule.clock_divider)
+        self.triggerCount.set(MRexcite_Control.MRexcite_System.TriggerModule.clock_counter)
+        
+        checkbox_TriggerMode=Checkbutton(self.WindowMain, text='Generate Trigger Train',variable=self.triggerMode,onvalue=1,offvalue=0)
+        Entry_clockDividerTrigger = Entry(self.WindowMain,textvariable=self.clockDivider,width=6)
+        Entry_triggerCount = Entry(self.WindowMain,textvariable=self.triggerCount,width=6)
+        Label_clockDividerTrigger = Label(self.WindowMain,text='Clock Divider')
+        Label_triggerCount = Label(self.WindowMain,text='Trigger Count')
+
+        checkbox_TriggerMode.place(x=xpos,y=ypos,anchor=W)
+        Entry_clockDividerTrigger.place(x=xpos,y=ypos+25, anchor=W)
+        Label_clockDividerTrigger.place(x=xpos+50,y=ypos+25,anchor=W)
+        Entry_triggerCount.place(x=xpos,y=ypos+50,anchor=W)
+        Label_triggerCount.place(x=xpos+50,y=ypos+50,anchor=W)
+
+        #Optical Module:
+        self.pre_amp_on = IntVar() #if this is 1, Pre-amps are switched on during Rx
+        self.pre_amp_on_always = IntVar() #if this in 1, Pre-amps are always on
+        self.Tx_always_on = IntVar() #if this is 1, the MRexcite System's T/R switches are always in Tx mode
+        self.det_always = IntVar() #If this is 1, detuning is always on
+        self.det_never = IntVar() #if this is 1, MRexcite is never detuned (!Is Overwritten by det_always!)
+        self.select_Rx = IntVar() #If 0, local coil reception is enabled. If 1, Body coil reception is enabled.
+
+        self.pre_amp_on.set(MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on)
+        self.pre_amp_on_always.set(MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on_always)
+        self.Tx_always_on.set(MRexcite_Control.MRexcite_System.OpticalModule.Tx_always_on)
+        self.det_always.set(MRexcite_Control.MRexcite_System.OpticalModule.det_always)
+        self.det_never.set(MRexcite_Control.MRexcite_System.OpticalModule.det_never)
+        self.select_Rx.set(MRexcite_Control.MRexcite_System.OpticalModule.select_Rx)
+
+        xpos=65
+        ypos=230
+        LabelFrame_Optical = LabelFrame(self.WindowMain,text='Optical Module', width=400,height=115)
+        LabelFrame_Optical.place(x=xpos-20,y=ypos-35)
+
+        checkbox_pre_amp_on=Checkbutton(self.WindowMain,text='Pre Amp On', variable=self.pre_amp_on,onvalue=1,offvalue=0)
+        checkbox_pre_amp_on_always=Checkbutton(self.WindowMain,text='Pre Amp On Always', variable=self.pre_amp_on_always,onvalue=1,offvalue=0)
+        checkbox_Tx_always_on=Checkbutton(self.WindowMain,text='Tx always on', variable=self.Tx_always_on,onvalue=1,offvalue=0)
+        checkbox_det_always=Checkbutton(self.WindowMain,text='Detuning always on (master)', variable=self.det_always,onvalue=1,offvalue=0)
+        checkbox_det_never=Checkbutton(self.WindowMain,text='Detuning never on', variable=self.det_never,onvalue=1,offvalue=0)
+        checkbox_select_Rx=Checkbutton(self.WindowMain,text='Body Coil reception', variable=self.select_Rx,onvalue=1,offvalue=0)
+
+        checkbox_pre_amp_on.place(x=xpos,y=ypos,anchor=W)
+        checkbox_pre_amp_on_always.place(x=xpos+200,y=ypos,anchor=W)
+        checkbox_det_always.place(x=xpos,y=ypos+25,anchor=W)
+        checkbox_det_never.place(x=xpos+200,y=ypos+25,anchor=W)
+        checkbox_Tx_always_on.place(x=xpos,y=ypos+50,anchor=W)
+        checkbox_select_Rx.place(x=xpos+200,y=ypos+50,anchor=W)
+
+        #Command Buttons
+        xpos=150
+        ypos=350
+
+        Button_Apply = Button(self.WindowMain, text='Apply', width=10, command=self.updateConfig)
+        Button_Apply.place(x=xpos,y=ypos,anchor=CENTER)
+
+        Button_Close = Button(self.WindowMain, text='Close', width=10, command=self.closeWindow)
+        Button_Close.place(x=xpos+150,y=ypos,anchor=CENTER)
+
+    def updateConfig(self):
+
+        if self.SwitchState.get()==1:
+            MRexcite_Control.MRexcite_System.EnableModule.set_RF_MRexcite()
+        else:
+            MRexcite_Control.MRexcite_System.EnableModule.set_RF_Siemens()
+        
+        if self.AmpState1.get()==1:
+            MRexcite_Control.MRexcite_System.EnableModule.enable_Amps1()
+        else:
+            MRexcite_Control.MRexcite_System.EnableModule.disable_Amps1()
+        
+        if self.AmpState2.get()==1:
+            MRexcite_Control.MRexcite_System.EnableModule.enable_Amps2()
+        else:
+            MRexcite_Control.MRexcite_System.EnableModule.disable_Amps2()
+        
+        MRexcite_Control.MRexcite_System.RFprepModule.set_gain(self.Gain.get())
+
+        MRexcite_Control.MRexcite_System.TriggerModule.gen_select=self.triggerMode.get()
+        MRexcite_Control.MRexcite_System.TriggerModule.clock_counter=self.triggerCount.get()
+        MRexcite_Control.MRexcite_System.TriggerModule.clock_divider=self.clockDivider.get()
+
+        MRexcite_Control.MRexcite_System.OpticalModule.det_always=self.det_always.get()
+        MRexcite_Control.MRexcite_System.OpticalModule.det_never=self.det_never.get()
+        MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on=self.pre_amp_on.get()
+        MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on_always=self.pre_amp_on_always.get()
+        MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=self.select_Rx.get()
+        MRexcite_Control.MRexcite_System.OpticalModule.Tx_always_on=self.Tx_always_on.get()
+
+        MRexcite_Control.MRexcite_System.SetSystemState()
 
     def closeWindow(self):
-        self.advancedUseEnabled=FALSE
+        self.updateConfig()
         self.WindowMain.destroy()
 
 class AdvancedUserObj:
@@ -403,8 +529,21 @@ class AdvancedUserObj:
         self.VarInputPassword = StringVar()
         self.EntryPassword = Entry(self.WindowPassword,show='*', textvariable=self.VarInputPassword,width=10)
         self.EntryPassword.place(x=100,y=30,anchor=CENTER)
+        self.EntryPassword.bind('<Return>', lambda event: self.closeWindow())
         self.ButtonPassword = Button(self.WindowPassword,text='Enter', command=self.closeWindow)
         self.ButtonPassword.place(x=100,y=60,anchor=CENTER)
+        self.EntryPassword.focus()
+    
+    def check(self):
+        if self.advancedUseEnabled==TRUE:
+            return_value=TRUE
+        else:
+            return_value=FALSE
+            self.openGUI()
+            if self.advancedUseEnabled==TRUE:
+                return_value=TRUE
+        return return_value
+
     def closeWindow(self):
         passwordEntered=self.VarInputPassword.get()
         if passwordEntered == self.password:

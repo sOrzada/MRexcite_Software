@@ -95,6 +95,34 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
             self.SPI.send_bitstream(bytes(bitstream))
         except:
             print('Error: Could not transmit via SPI!')
+    def SetSystemState(self):
+        '''This function sends applies all System states to the Hardware. NO Modulators!'''
+        bytestream_trigger = self.TriggerModule.return_byte_stream()
+        bytestream_optical = self.OpticalModule.return_byte_stream()
+        bytestream_RFprep = self.RFprepModule.return_byte_stream()
+        bytestream_enable = self.EnableModule.return_byte_stream()
+        bytestream=bytestream_trigger+bytestream_optical+bytestream_RFprep+bytestream_enable
+        try:
+            self.SPI.send_bitstream(bytestream)
+            return 1
+        except:
+            print('Error: Could not transmit via SPI!')
+            return 0
+    
+    def SetAll(self):
+        '''This function sends applies all System states to the Hardware, including modulators.'''
+        bytestream_trigger = self.TriggerModule.return_byte_stream()
+        bytestream_optical = self.OpticalModule.return_byte_stream()
+        bytestream_RFprep = self.RFprepModule.return_byte_stream()
+        bytestream_enable = self.EnableModule.return_byte_stream()
+        bytestream_modulators = self.Modulator.return_byte_stream()
+        bytestream=bytestream_trigger+bytestream_optical+bytestream_RFprep+bytestream_enable+bytestream_modulators
+        try:
+            self.SPI.send_bitstream(bytestream)
+            return 1
+        except:
+            print('Error: Could not transmit via SPI!')
+            return 0
 
 ### Helper Classes ###
 class PulseObj:
@@ -157,79 +185,6 @@ class USB2SPIObj: #Contains all data and methods for USB2SPI hardware. (Communic
                 bitstream_send=bitstream[a*max_num_bytes:stream_length]
             self.devA.spiMaster_SingleWrite(bitstream_send, True)
 
-
-    '''Contains all data and methods for Timing Control Board'''
-    
-    ### Attributes ###
-    con_mode = 0 #Continous Mode or intermittant mode (Tx/Rx)
-    mod_res_sel = 0 #Select whether to reset modulators via Tx/Rx (1) or their own counters (0)
-    ubl_enable = 1 #Enable unblank
-    trig = 0 #Trigger from clock disabled/enabled
-    clock_divider = 100 #Clock Divider for 10 MHz clock.
-    counter_Rx = 255 #Rx will last this many clock cycles
-    counter_Tx = 255 #Tx will last this many clock cycles
-    
-    ### Methods ###
-    def __init__(self,config):
-        self.address = int(config['DEFAULT']['timing_control_address']) #Physical Address for TimingControl
-    
-    def set_continous_mode(self):
-        '''Set the variable for Continous Transmit Mode to enable.'''
-        self.con_mode = 1
-   
-    def set_alternating_mode(self):
-        '''Set the variable for Continous Transmit Mode to disable. System will be alternating between Tx and "Rx"'''
-        self.con_mode = 0
-    
-    def switch_off(self):
-        self.ubl_enable = 0
-    
-    def switch_on(self):
-        self.ubl_enable = 1
-    
-    def trigger_on(self):
-        self.trig = 1
-
-    def trigger_off(self):
-        self.trig = 0
-    
-    def return_byte_stream(self):
-        '''Returns list of bytes to be transmitted via SPI interface. 
-        The list of bytes provides the correct sequence to program the hardware to the settings in this object.'''
-        CB = ControlByteObj() #For improved readability use the object CB to gerenate the control bits.
-        byte_stream = [CB.prog, 0, 0, 0] #Initiate by setting system into write mode.
-        for a in range(4): #Timing Control contains 4 registers.
-            match a:
-                case 0: #State Register
-                    data1 = self.con_mode + 2* self.mod_res_sel + 4* self.ubl_enable + 8*self.trig #First four bits
-                    data2 = 0 #Not used
-                case 1: #Register for Clock Devider
-                    data1=self.clock_divider%256
-                    data2=math.floor(self.clock_divider/256)
-                case 2: #Register for Tx Counter
-                    data1=self.counter_Tx%256
-                    data2=math.floor(self.counter_Tx/256)
-                case 3: #Register for Rx Counter
-                    data1=self.counter_Rx%256
-                    data2=math.floor(self.counter_Rx/256)
-            byte_stream_add = [CB.prog + CB.chip(a), self.address, data2, data1,
-                               CB.prog + CB.we + CB.chip(a), self.address, data2, data1,
-                               CB.prog + CB.chip(a), self.address, data2, data1]
-            byte_stream = byte_stream + byte_stream_add
-        byte_stream=byte_stream + [CB.prog, 0, 0, 0]
-        data = bytes(byte_stream)
-        return data
-    
-    def return_timings(self): #Calculate and return timings
-        '''Calculates and prints timings Terminal'''
-        clock_f=10e6/self.clock_divider
-        t_Rx=self.counter_Rx/clock_f
-        t_Tx=self.counter_Tx/clock_f
-        duty_cycle = t_Tx/(t_Rx+t_Tx)*100
-        print('Clock Frequency: ' + str(clock_f/1000) + 'kHz')
-        print('Transmit Time: ' + str(t_Tx*1000) + 'ms')
-        print('*Receive* Time: ' + str(t_Rx*1000) + 'ms')
-        print('Duty Cycle: ' + str(duty_cycle) + '%')
 
 class ModulatorObj: #Contains all data and methods for Modulators
     '''Contains all data and methods for Modulator board. This also includes calibration data.'''
@@ -497,6 +452,7 @@ class RFprepObj: #Contains all data and methods for the RF Preparation Board. (P
        self.gain_low = int(config['RF_prep_Module']['gain_low'])
        self.maxgain = int(config['RF_prep_Module']['maxgain'])
        self.gain_data=0
+       self.gain=0
        self.set_gain_low()
 
     def set_gain(self,gain_in:int):
@@ -514,17 +470,21 @@ class RFprepObj: #Contains all data and methods for the RF Preparation Board. (P
             self.gain_data=abs(gain_in)
         else:
             self.gain_data=self.maxgain-gain_in + 128
+        self.Status='User Defined'
+        self.gain=gain_in
         
     def set_gain_high(self):
         '''Sets gain for high signal mode (Full modulation by MRexcite).\n
         The gain value for high gain is set in the MRexcite_config.ini'''
         self.set_gain(self.gain_high)
+        self.gain=self.gain_high
         self.Status='Full'
 
     def set_gain_low(self):
         '''Sets gain for low signal mode (MRexcite modulation on top of modulated MR signal).\n
         The gain value for low gain is set in the MRexcite_config.ini'''
         self.set_gain(self.gain_low)
+        self.gain=self.gain_low
         self.Status='Hybrid'
 
     def return_byte_stream(self):
