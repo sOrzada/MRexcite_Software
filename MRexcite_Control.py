@@ -95,6 +95,12 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
             self.SPI.send_bitstream(bytes(bitstream))
         except:
             print('Error: Could not transmit via SPI!')
+    def LightAddress(self,address):
+        bitstream=[0,address,0,0]
+        try:
+            self.SPI.send_bitstream(bytes(bitstream))
+        except:
+            print('Error: Could not transmit via SPI!')
     def SetSystemState(self):
         '''This function sends applies all System states to the Hardware. NO Modulators!'''
         bytestream_trigger = self.TriggerModule.return_byte_stream()

@@ -35,6 +35,7 @@ class MainGUIObj:
         self.SARDisplay.place_SAR_info(400,150)
         self.SARthread=Thread(target=self.SARDisplay.getSAR,args=[],daemon=TRUE)
         self.SARthread.start()
+        self.AddressTestGUI=AddressTestObj()
         self.AdvancedUser=AdvancedUserObj()
         self.GeneralSettingsGUI=GeneralSettingsObj()
         self.CalibrateZero=MRexcite_Calibration.CalibrateZeroObj()
@@ -72,6 +73,7 @@ class MainGUIObj:
         MenuBar.add_cascade(label='Configuration', menu=ConfigurationMenu)
         ConfigurationMenu.add_command(label='Advanced User', command=self.enableAdvancedUser)
         ConfigurationMenu.add_separator()
+        ConfigurationMenu.add_command(label='Address Test',command=self.AddressTest)
         ConfigurationMenu.add_command(label='General Settings', command=self.settingsGeneral)
         ConfigurationMenu.add_separator()
         ConfigurationMenu.add_command(label = 'Zero Offset Calibration', command = self.calibrateSystemZero)
@@ -275,11 +277,17 @@ class MainGUIObj:
         triggerSelectWindow=TriggerSelectObj()
         triggerSelectWindow.WindowMain.grab_set()
         triggerSelectWindow.WindowMain.wait_window(triggerSelectWindow.WindowMain)
-
+    def AddressTest(self):
+        if self.AdvancedUser.check()==TRUE:
+            self.AddressTestGUI.openGUI()
+            self.AddressTestGUI.WindowAddress.focus()
+            self.AddressTestGUI.WindowAddress.grab_set()
+            self.AddressTestGUI.WindowAddress.wait_window(self.AddressTestGUI.WindowAddress)
     def settingsGeneral(self): #General settings for the System.
         if self.AdvancedUser.check()==TRUE:
             self.GeneralSettingsGUI.openGUI()
             self.GeneralSettingsGUI.WindowMain.focus()
+            self.GeneralSettingsGUI.WindowMain.grab_set()
             self.GeneralSettingsGUI.WindowMain.wait_window(self.GeneralSettingsGUI.WindowMain)
             self.update_status()
         else:
@@ -564,6 +572,65 @@ class AdvancedUserObj:
             print('Wrong password.')
         
         self.WindowPassword.destroy()
+
+class AddressTestObj:
+    '''Class for lighting up the address LED on any card in the System. For Test puproses.'''
+    def __init__(self):
+        self.Address_Selected = IntVar()
+        self.Address_Selected.set(0)
+        #Prepare List for running through all VALID addresses:
+        number_of_channels = MRexcite_Control.MRexcite_System.Modulator.number_of_channels
+        start_address_modulators= MRexcite_Control.MRexcite_System.Modulator.start_address
+        add_trig_module = MRexcite_Control.MRexcite_System.TriggerModule.address
+        add_enable_module = MRexcite_Control.MRexcite_System.EnableModule.address
+        add_RFprep_module = MRexcite_Control.MRexcite_System.RFprepModule.address
+        add_optical_module = MRexcite_Control.MRexcite_System.OpticalModule.address
+        self.addressList = [0]*(number_of_channels+4)
+
+        for a in range(number_of_channels):
+            self.addressList[a]=a+start_address_modulators
+        
+        self.addressList[number_of_channels]=add_trig_module
+        self.addressList[number_of_channels+1]=add_enable_module
+        self.addressList[number_of_channels+2]=add_RFprep_module
+        self.addressList[number_of_channels+3]=add_optical_module
+        
+        
+
+    def openGUI(self):    
+        #Input Window for AddressTest
+        self.WindowAddress = Toplevel()
+        self.WindowAddress.title('Address Check')
+        self.WindowAddress.config(width=300, height=200)
+        self.WindowAddress.resizable(False,False)
+        self.WindowAddress.iconbitmap(os.path.dirname(__file__) + r'\images\MRexcite_logo.ico')
+        self.WindowAddress.protocol('WM_DELETE_WINDOW', self.closeWindow)
+        
+        #Input for specific address
+        Entry_Address = Entry(self.WindowAddress, textvariable=self.Address_Selected, width = 5 )
+        Entry_Address.place(x=100, y=50, anchor=W)
+        self.Button_SendAdress= Button(self.WindowAddress,text='Send',command=self.__sendAddress__)
+        self.Button_SendAdress.place(x=140,y=50, anchor=W)
+        self.Button_RunAddresses = Button(self.WindowAddress,text='Run All Addresses',command=self.__runAddresses__)
+        self.Button_RunAddresses.place(x=100,y=100)
+
+    def __sendAddress__(self):
+        '''Light a specific address LED'''
+        MRexcite_Control.MRexcite_System.LightAddress(self.Address_Selected.get())
+    def __runAddresses__(self):
+        '''Runs through all valid adresses and lights the indicator LEDs'''
+        self.Button_RunAddresses["state"]="disabled"
+        self.Button_SendAdress["state"]="disabled"
+        for a in self.addressList:
+            MRexcite_Control.MRexcite_System.LightAddress(a)
+            self.Address_Selected.set(a)
+            self.WindowAddress.update()
+            sleep(1)
+        self.Button_RunAddresses["state"]="normal"
+        self.Button_SendAdress["state"]="normal"
+    def closeWindow(self):
+        self.WindowAddress.destroy()
+        
 
 class TriggerSelectObj:
     '''Class for Window for selecting number of Triggers to be sent'''
