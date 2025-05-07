@@ -257,7 +257,7 @@ class MainGUIObj:
         pass
 
     def loadShim(self): #Load a shim file
-        f_name=filedialog.askopenfile(mode='rb', filetypes=(('Matlab File','*.mat'),), defaultextension=(('Matlab File','*.mat'),))
+        f_name=filedialog.askopenfile(mode='rb', filetypes=(('Matlab File','*.mat'),('Numpy Files','*.npy')), defaultextension=(('Matlab File','*.mat'),))
         self.displayShim.set(str(f_name.name))
     
     def setCPplus(self): #Applies the CP+ mode for the Body coil.
@@ -591,9 +591,9 @@ class AddressTestObj:
             self.addressList[a]=a+start_address_modulators
         
         self.addressList[number_of_channels]=add_trig_module
-        self.addressList[number_of_channels+1]=add_enable_module
-        self.addressList[number_of_channels+2]=add_RFprep_module
-        self.addressList[number_of_channels+3]=add_optical_module
+        self.addressList[number_of_channels+1]=add_RFprep_module
+        self.addressList[number_of_channels+2]=add_optical_module
+        self.addressList[number_of_channels+3]=add_enable_module
         
         
 
@@ -629,8 +629,7 @@ class AddressTestObj:
         self.Button_RunAddresses["state"]="normal"
         self.Button_SendAdress["state"]="normal"
     def closeWindow(self):
-        self.WindowAddress.destroy()
-        
+        self.WindowAddress.destroy()        
 
 class TriggerSelectObj:
     '''Class for Window for selecting number of Triggers to be sent'''

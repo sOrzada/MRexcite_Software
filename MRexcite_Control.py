@@ -307,8 +307,24 @@ class ModulatorObj: #Contains all data and methods for Modulators
 
     def set_amplitudes_phases_state(self,amplitudes_in,phases_in,state_in):
         '''Sets the digital I and Q values to achieve the amplitudes and phases specified in the input variables.\n
-        This includes normalizing according to the calibration.'''
+        This includes normalizing according to the calibration. Be aware that the pulse amplitude is normalized depending on the state of the RF preparation (Full or Hybrid modulation). Make sure that the state is set before applying amplitudes and phases!'''
         self.prepare_1D_Cal() #Prepare Pchip Objects. This is to make sure that these are current.
+        
+        #Here we change the amplitudes of the pulse. The hybrid modulation expects pulses with an amplitude between 0 and 1, while the full modulation expects voltages.
+        #If the modulation is hybrid and the maximum amplitude is >0, we normalize the pulse ampltiudes.
+        if type(amplitudes_in[1]) is list:
+            maxAmp=max(max(x) for x in amplitudes_in)
+        else:
+            maxAmp=max(amplitudes_in)
+
+        if MRexcite_System.RFprepModule.Status=='Full':
+            pass
+        elif (maxAmp>1) & (type(amplitudes_in[1]) is list):
+            for a in range(self.number_of_channels):
+                amplitudes_in[a]=[i/maxAmp for i in amplitudes_in[a]]
+        elif (maxAmp>1):
+            amplitudes_in=[i/maxAmp for i in amplitudes_in]
+
         self.amplitudes=amplitudes_in
         self.phases=phases_in
         self.I_values=[0]*self.number_of_channels
@@ -615,3 +631,16 @@ config.read(os.path.dirname(__file__) + '/MRexcite_config.ini')
 ### Instance Hardware Objects ###
 MRexcite_System = MRexcite_SystemObj(config)
 print('Initialized System')
+
+'''
+Testarray_single=[10]*MRexcite_System.Modulator.number_of_channels
+Testarray_single2=[0]*MRexcite_System.Modulator.number_of_channels
+Testarray_many=[]
+Testarray_many2=[]
+
+for a in range(MRexcite_System.Modulator.number_of_channels):
+    Testarray_many.append(Testarray_single)
+    Testarray_many2.append(Testarray_single2)
+
+
+MRexcite_System.Modulator.set_amplitudes_phases_state(Testarray_many,Testarray_many,Testarray_many2)'''

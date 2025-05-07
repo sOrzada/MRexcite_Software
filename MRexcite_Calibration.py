@@ -1,4 +1,4 @@
-'''GUIs for calibration of STASIS System.'''
+'''GUIs for calibration of MRexcite System.'''
 from tkinter import *
 
 import scipy.interpolate
@@ -175,7 +175,7 @@ class CalibrateZeroObj:
         MRexcite_Control.MRexcite_System.Modulator.IQoffset = self.IQoffset
         MRexcite_Control.MRexcite_System.Modulator.set_amplitudes_phases_state(self.amplitudes,self.phases,self.states)
         bitstream=MRexcite_Control.MRexcite_System.Modulator.return_byte_stream()
-        bitstream_RFprep = MRexcite_Control.MRexcite_System.RFprepModule.return_byte_stream() #Ser RFprep Module to correct state.
+        bitstream_RFprep = MRexcite_Control.MRexcite_System.RFprepModule.return_byte_stream() #Set RFprep Module to correct state.
         start_adress = MRexcite_Control.MRexcite_System.Modulator.start_address
         bitstream_adress = bytes([0 , start_adress-1+self.active_channel,0,0]) #sending this word as final word lets the active channels LED light up. Unblank is disabled.
         bitstream_enable_mod = bytes([CB.clock,0,0,0])
