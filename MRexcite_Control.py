@@ -206,10 +206,14 @@ class ModulatorObj: #Contains all data and methods for Modulators
             self.Amp_state[a] = [0]*self.counter_max[a]
         
         #Initialize Variables for I/Q offset
-        self.IQoffset = [0]*self.number_of_channels
+        self.IQoffset = [0]*self.number_of_channels #Offset for Full Modulation
+        self.IQoffset_hybrid = [0]*self.number_of_channels #Offset for Hybrid Modulation
         for a in range(self.number_of_channels):
             self.IQoffset[a]=[0]*2
+            self.IQoffset_hybrid[a]=[0]*2
         self.f_name_CalZP=os.path.dirname(__file__) + '/' + config['Calibration']['Calibration_File_Zero_Point'] #Get file name for Zero Calibration from Config file.
+        self.f_name_CalZP_hyb=os.path.dirname(__file__) + '/' + config['Calibration']['Calibration_File_Zero_Point_Hybrid'] #Get file name for Zero Calibration from Config file.
+
         try:
             self.read_IQ_offset() #Read the Offset values from thr IQ-Offset file.
         except:
@@ -247,6 +251,15 @@ class ModulatorObj: #Contains all data and methods for Modulators
                 self.IQoffset[a][0]=int(row[0])
                 self.IQoffset[a][1]=int(row[1])
                 a=a+1
+        
+        with open(self.f_name_CalZP_hyb,'r') as f:
+            reader = csv.reader(f, delimiter=',')
+            a=0
+            for row in reader:  #Read total file row by row. First value is I offset, second value is Q offset.
+                self.IQoffset_hybrid[a][0]=int(row[0])
+                self.IQoffset_hybrid[a][1]=int(row[1])
+                a=a+1
+
     def read_1D_Cal(self):
         '''Reads the 1D calibration data file which is specified in the config file.'''
         self.Cal1D = np.load(self.f_name_Cal1D)
@@ -256,6 +269,10 @@ class ModulatorObj: #Contains all data and methods for Modulators
         with open(self.f_name_CalZP, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerows(self.IQoffset)
+        with open(self.f_name_CalZP_hyb, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile, delimiter=',')
+            writer.writerows(self.IQoffset_hybrid)
+
 
     def write_1D_Cal(self):
         '''Saves the current 1D calibration data to file specified in config file.'''
@@ -314,26 +331,44 @@ class ModulatorObj: #Contains all data and methods for Modulators
         "phase is a single phase in degrees.\n
         "channel" specifies for which channel this sample is. This is necessary to use the correct calibration values.\n
         "mode" specifies which state the amplifier is in.'''
-        # Order of operation for correction:
-        # 1. Calculate corrected amplitude (convert from Volts to digital value with pchip)
-        # 2. Calculate correct angle in IQ-space
-        # 3. Add offset
-
-        #Calculate correct digital amplitude for required output voltage
-        amp_digital = self.pchip_objects_amplitude[channel][mode].__call__(amp) #Corrected digital amplitude in arbitrary units
         
-        #Calculate phase correction for digital amplitude
-        phase_offset = self.pchip_objects_phase[channel][mode].__call__(amp_digital) #Correct phase for the selected digital amplitude
-        ph=ph+phase_offset #This is the correct sign.
+        if MRexcite_System.RFprepModule.Status=='Full': #Corrections for Full Modulation
+            # Order of operation for correction:
+            # 1. Calculate corrected amplitude (convert from Volts to digital value with pchip)
+            # 2. Calculate correct angle in IQ-space
+            # 3. Add offset
 
-        IQ=(pow(2,13)-1 +self.IQoffset[channel][0])+ 1j*(pow(2,13)-1 +self.IQoffset[channel][1]) + amp_digital*np.exp(1j*np.pi/180*ph) #Only includes offset correction.
+            #Calculate correct digital amplitude for required output voltage
+            amp_digital = self.pchip_objects_amplitude[channel][mode].__call__(amp) #Corrected digital amplitude in arbitrary units
+        
+            #Calculate phase correction for digital amplitude
+            phase_offset = self.pchip_objects_phase[channel][mode].__call__(amp_digital) #Correct phase for the selected digital amplitude
+            ph=ph+phase_offset #This is the correct sign.
+
+            IQ=(pow(2,13)-1 +self.IQoffset[channel][0])+ 1j*(pow(2,13)-1 +self.IQoffset[channel][1]) + amp_digital*np.exp(1j*np.pi/180*ph) #Only includes offset correction.
+        else: #Corrections for Hybrid modulation
+            IQ=(pow(2,13)-1 + self.IQoffset_hybrid[channel][0]+ 1j*(pow(2,13)-1 +self.IQoffset_hybrid[channel][1])) + amp*np.exp(1j*np.pi/180*ph) #Only offset calibration. TODO: Modulator calibration.
+        
+        
         return IQ
+    
+    def setIQ(self,I_in: list,Q_in: list,Amp_state_in: list,use_offset: bool):
+        '''This function sets a single IQ-Value for each channel and an accompanying amplifier mode. If "use_offset" is true, zero offset is applied.''' 
+        if use_offset==True:
+            for channel in range(self.number_of_channels):
+                self.I_values[channel]=I_in[channel] + self.IQoffset[channel][0]
+                self.Q_values[channel]=Q_in[channel] + self.IQoffset[channel][1]
+        else:
+            self.I_values=I_in
+            self.Q_values=Q_in
+        
+        self.Amp_state=Amp_state_in
         
         
 
     def return_byte_stream(self):
         '''Returns a byte stream to be transmitted via SPI. This byte stream is suited to programm the modulators (hardware) to the state given in this object'''
-        CB = ControlByteObj() #For improved readability use the object CB to gerenate the control bits.
+        CB = ControlByteObj() #For improved readability use the object CB to generate the control bits.
         byte_stream = [CB.prog, 0 , 0, 0]*1000 #Make sure the switching to programming mode is finished.
         for a in range(self.number_of_channels): #Run through all channels
             data1=self.counter_max[a]%256
@@ -453,6 +488,7 @@ class RFprepObj: #Contains all data and methods for the RF Preparation Board. (P
        self.maxgain = int(config['RF_prep_Module']['maxgain'])
        self.gain_data=0
        self.gain=0
+       self.Status='Hybrid' #This is a string for the Status. Should be either "Hybrid", "Full" or "User Defined" is set automatically, when gain is changed.
        self.set_gain_low()
 
     def set_gain(self,gain_in:int):

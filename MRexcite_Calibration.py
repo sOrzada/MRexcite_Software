@@ -20,25 +20,40 @@ class CalibrateZeroObj:
         self.number_of_channels = MRexcite_Control.MRexcite_System.Modulator.number_of_channels
         self.active_channel = 1
         self.IQoffset = MRexcite_Control.MRexcite_System.Modulator.IQoffset
+        self.IQoffset_hybrid = MRexcite_Control.MRexcite_System.Modulator.IQoffset_hybrid
 
         #Initiate Amplitudes, Phases and States(for the purpose of this Calibration step, the letter is unimportant, but needs to be set anyway)
         self.amplitudes = list([0])*self.number_of_channels
         self.phases = [0]*self.number_of_channels
         self.states = [0]*self.number_of_channels
+
+        self.RFprepState = IntVar()
     
     def openGUI(self):
         '''Prepares and Opens the GUI or this Class Object.'''
         self.WindowMain = Toplevel()
-        self.WindowMain.iconbitmap(os.path.dirname(__file__) + '\images\MRexcite_logo.ico.ico')
+        self.WindowMain.iconbitmap(os.path.dirname(__file__) + '\images\MRexcite_logo.ico')
         self.WindowMain.title('Zero Point Calibration of Modulators')
         self.WindowMain.config(width=1200, height=550)
         self.WindowMain.protocol('WM_DELETE_WINDOW', lambda: self.saveClose())
         
         #Initialize Controls
-        self.controlButtonsInit(x_center=150, y_center=250) #Initialize control buttons
-        self.channelSelectInit(x_center=150,y_center=100) #Initialize Listbox for channel selection
+        self.__controlButtonsInit__(x_center=150, y_center=250) #Initialize control buttons
+        self.__channelSelectInit__(x_center=150,y_center=100) #Initialize Listbox for channel selection
+
         self.ButtonSaveClose = Button(self.WindowMain, width=10, height=2, text='Save & Close', command=self.saveClose)
         self.ButtonSaveClose.place(x=150, y=400, anchor='center')
+
+        #Selection of gain:
+        if MRexcite_Control.MRexcite_System.RFprepModule.Status=='Full':
+            self.RFprepState.set(0)
+        else:
+            self.RFprepState.set(1)
+        
+        self.checkBoxGain = Checkbutton(self.WindowMain,text='Hybrid Mode', variable=self.RFprepState, onvalue=1, offvalue=0,command=self.update)
+        self.checkBoxGain.place(x=150,y=60,anchor=CENTER)
+
+
 
         #Load explanatory image and show in GUI
         self.image_path=os.path.dirname(__file__) + '\Images\Zero_Point_Cal.jpg'
@@ -64,8 +79,12 @@ class CalibrateZeroObj:
 
     def changeIQ(self,I_change,Q_change):
         '''Changes the IQ offset for the active channel by the numbers specified in I_change and Q_change'''
-        self.IQoffset[self.active_channel-1][0] = self.IQoffset[self.active_channel-1][0] + I_change
-        self.IQoffset[self.active_channel-1][1] = self.IQoffset[self.active_channel-1][1] + Q_change
+        if self.RFprepState.get()==0:
+            self.IQoffset[self.active_channel-1][0] = self.IQoffset[self.active_channel-1][0] + I_change
+            self.IQoffset[self.active_channel-1][1] = self.IQoffset[self.active_channel-1][1] + Q_change
+        else:
+            self.IQoffset_hybrid[self.active_channel-1][0] = self.IQoffset_hybrid[self.active_channel-1][0] + I_change
+            self.IQoffset_hybrid[self.active_channel-1][1] = self.IQoffset_hybrid[self.active_channel-1][1] + Q_change
         
         self.update()
 
@@ -77,7 +96,7 @@ class CalibrateZeroObj:
         self.WindowMain.destroy()
         pass
 
-    def controlButtonsInit(self,x_center,y_center): #Initialize Control Panel for I/Q correction
+    def __controlButtonsInit__(self,x_center,y_center): #Initialize Control Panel for I/Q correction
         '''Initializes the control Buttons and places them as a group at the location specified in x_center and y_center'''
         
         #This frame is only for looks:
@@ -104,7 +123,7 @@ class CalibrateZeroObj:
         self.Button_left1.place(x=x_center-30, y=y_center, anchor='center')
         self.Button_left10.place(x=x_center-65, y=y_center, anchor='center')
     
-    def channelSelectInit(self, x_center, y_center): #Initialize Buttons and Label for Channel selection
+    def __channelSelectInit__(self, x_center, y_center): #Initialize Buttons and Label for Channel selection
         '''Initializes the channel selection interface at the coordinates specified by x_center and y_center.'''
         Button_prev = Button(self.WindowMain, width=3,height=1, text='<', command=lambda: self.channelselect(-1))
         Button_next = Button(self.WindowMain, width=3,height=1, text='>', command=lambda: self.channelselect(+1))
@@ -128,7 +147,11 @@ class CalibrateZeroObj:
         a=self.active_channel
         self.plotFigureOffset.clear()
         self.plotFigureOffset.scatter(0,0, marker='o')
-        self.plotFigureOffset.scatter(self.IQoffset[a-1][1],self.IQoffset[a-1][0], marker='x')
+        if self.RFprepState.get()==0:
+            self.plotFigureOffset.scatter(self.IQoffset[a-1][1],self.IQoffset[a-1][0], marker='x')
+        else:
+            self.plotFigureOffset.scatter(self.IQoffset_hybrid[a-1][1],self.IQoffset_hybrid[a-1][0], marker='x')
+
         self.plotFigureOffset.axis([-128,128,-128,128])
         self.plotFigureOffset.set_xlabel('I offset')
         self.plotFigureOffset.set_ylabel('Q offset')
@@ -138,6 +161,11 @@ class CalibrateZeroObj:
 
     def update(self):
         '''Calls functions for updating the figure and setting the Modulators. (self.plotFigure() and self.set_Modulators)'''
+        if self.RFprepState.get()==0:
+            MRexcite_Control.MRexcite_System.RFprepModule.set_gain_high()
+        else:
+            MRexcite_Control.MRexcite_System.RFprepModule.set_gain_low()
+
         self.plotFigure()
         self.set_Modulators()
     
@@ -147,10 +175,11 @@ class CalibrateZeroObj:
         MRexcite_Control.MRexcite_System.Modulator.IQoffset = self.IQoffset
         MRexcite_Control.MRexcite_System.Modulator.set_amplitudes_phases_state(self.amplitudes,self.phases,self.states)
         bitstream=MRexcite_Control.MRexcite_System.Modulator.return_byte_stream()
+        bitstream_RFprep = MRexcite_Control.MRexcite_System.RFprepModule.return_byte_stream() #Ser RFprep Module to correct state.
         start_adress = MRexcite_Control.MRexcite_System.Modulator.start_address
-        bitstream_adress = bytes([0 , start_adress-1+self.active_channel,0,0]) #sending this word as final word lets the active channels LED light up and sets the system to "on" without transmitting
+        bitstream_adress = bytes([0 , start_adress-1+self.active_channel,0,0]) #sending this word as final word lets the active channels LED light up. Unblank is disabled.
         bitstream_enable_mod = bytes([CB.clock,0,0,0])
-        bitstream = bitstream +bitstream_enable_mod+ bitstream_adress
+        bitstream = bitstream_RFprep+bitstream +bitstream_enable_mod+ bitstream_adress
         try:
             MRexcite_Control.MRexcite_System.SPI.send_bitstream(bitstream)
             sleep(0.05)
@@ -449,4 +478,9 @@ class CalibrateLinearity1DObj:
         MRexcite_Control.MRexcite_System.Modulator.write_1D_Cal()
         self.WindowMain.destroy()
             
+class ModulatorCalibrationObj:
+    def __init__(self) -> None:
+        self.number_of_channels = MRexcite_Control.MRexcite_System.Modulator.number_of_channels
+        self.active_channel = 1
 
+        pass

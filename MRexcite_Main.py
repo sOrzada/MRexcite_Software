@@ -37,6 +37,7 @@ class MainGUIObj:
         self.SARthread.start()
         self.AdvancedUser=AdvancedUserObj()
         self.GeneralSettingsGUI=GeneralSettingsObj()
+        self.CalibrateZero=MRexcite_Calibration.CalibrateZeroObj()
         self.update_status()
 
     def menu_bar(self): #Menu Bar for main window.
@@ -285,7 +286,13 @@ class MainGUIObj:
             pass
 
     def calibrateSystemZero(self): #Calibration of the Zero point of the Modulators
-        pass
+        if self.AdvancedUser.check()==TRUE:
+            self.CalibrateZero.openGUI()
+            self.CalibrateZero.WindowMain.focus()
+            self.CalibrateZero.WindowMain.wait_window(self.CalibrateZero.WindowMain)
+            self.update_status()
+        else:
+            pass
 
     def calibrateSystemLin1D(self): #Calibration for full modulation including amplifiers
         pass
@@ -374,6 +381,7 @@ class GeneralSettingsObj:
     def __init__(self):
         pass
     def openGUI(self):
+        '''Function defines and opens window for GUI.'''
         #Input Window for general settings
         self.WindowMain = Toplevel()
         self.WindowMain.title('General Settings')
@@ -477,7 +485,7 @@ class GeneralSettingsObj:
         Button_Close.place(x=xpos+150,y=ypos,anchor=CENTER)
 
     def updateConfig(self):
-
+        '''This function applies all changes to system.'''
         if self.SwitchState.get()==1:
             MRexcite_Control.MRexcite_System.EnableModule.set_RF_MRexcite()
         else:
@@ -519,6 +527,7 @@ class AdvancedUserObj:
     def __init__(self):
         pass
     def openGUI(self):
+        '''This is the GUI for password entry. Is called by the check() function'''
         #Password Entry for advanced usage
         self.WindowPassword = Toplevel()
         self.WindowPassword.title('Enter Password')
@@ -529,12 +538,13 @@ class AdvancedUserObj:
         self.VarInputPassword = StringVar()
         self.EntryPassword = Entry(self.WindowPassword,show='*', textvariable=self.VarInputPassword,width=10)
         self.EntryPassword.place(x=100,y=30,anchor=CENTER)
-        self.EntryPassword.bind('<Return>', lambda event: self.closeWindow())
+        self.EntryPassword.bind('<Return>', lambda event: self.closeWindow()) #Here I use the lambda so that the event object is not passed to the close window function.
         self.ButtonPassword = Button(self.WindowPassword,text='Enter', command=self.closeWindow)
         self.ButtonPassword.place(x=100,y=60,anchor=CENTER)
         self.EntryPassword.focus()
     
     def check(self):
+        '''This function checks whether advanced usage is enabled. If not, it will open an input window for password entry.'''
         if self.advancedUseEnabled==TRUE:
             return_value=TRUE
         else:
