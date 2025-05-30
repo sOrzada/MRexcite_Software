@@ -1,6 +1,10 @@
 import MRexcite_Control #Contains definition of Hardware and Initializes Hardware.
 import pathlib
 import scipy
+
+# Constants
+COLOR_SAR_EXCEEDED = '#FF0000'
+COLOR_SAR_OK = '#00FF00'
 import numpy as np
 import configparser
 from time import sleep
@@ -373,14 +377,14 @@ class SARSupervisionDisplyObj:
         self.LabelSAR6min.config(text=str(round(SAR6min))+' %')
         self.LabelSARPower.config(text=str(power)+' W')
         if SAR10s>100:
-            self.LabelSAR10s.config(background='#FF0000')
+            self.LabelSAR10s.config(background=COLOR_SAR_EXCEEDED)
         else:
-            self.LabelSAR10s.config(background='#00FF00')
+            self.LabelSAR10s.config(background=COLOR_SAR_OK)
 
         if SAR6min>100:
-            self.LabelSAR6min.config(background='#FF0000')
+            self.LabelSAR6min.config(background=COLOR_SAR_EXCEEDED)
         else:
-            self.LabelSAR6min.config(background='#00FF00')
+            self.LabelSAR6min.config(background=COLOR_SAR_OK)
     
     def getSAR(self):
         while TRUE:

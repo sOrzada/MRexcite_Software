@@ -224,7 +224,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
         try:
             self.read_IQ_offset() #Read the Offset values from thr IQ-Offset file.
         except:
-            print('Could not open IQ offset calibration file. Using no offset.')
+            print(f'Could not open IQ offset calibration file: {self.f_name_CalZP}. Using no offset.')
         
         #Initialize Variables for Modulator Calibration (Hybrid mode)
         self.CalMod=np.zeros((self.number_of_channels,2,2,2)) #Number of Channels, number of power mode (low/high), number of dimension (2: I/Q), number of tests (2: I/Q)
@@ -235,7 +235,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
         try:
             self.read_mod_cal()
         except:
-            print('Could not open Modulator calibration file. Using generic data.')
+            print(f'Could not open Modulator calibration file "{self.f_name_CalMod}". Falling back to generic calibration data.')
         
         #Initialize Variables for Linearity Calibration
         self.number_of_1D_samples=12
@@ -257,7 +257,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
         try:
             self.read_1D_Cal() #Read the 1D linearity calibration data from file.
         except:
-            print('Could not open 1D Linearity calibration file. Using generic data.')
+            print(f'Could not open 1D Linearity calibration file: {self.f_name_Cal1D}. Falling back to generic calibration data.')
     
     
     def read_IQ_offset(self):

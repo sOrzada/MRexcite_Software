@@ -296,6 +296,7 @@ class CalibrateLinearity1DObj:
 
     def init_entry_boxes(self,x_center,y_center):
         '''Initializes the entry boxes for amplitude and phase inputs'''
+        # Initialize StringVar variables for storing amplitude (dB) and phase (degrees) values
         self.dB_value = StringVar()
         self.deg_value = StringVar()
         
@@ -608,34 +609,41 @@ class ModulatorCalibrationObj:
         self.update()
     
     def update_figure(self):
-        color_I_low = '#0000EE'
-        color_Q_low = '#0000AA'
-        color_I_high = '#EE0000'
-        color_Q_high = '#AA0000'
+        # Define colors for different measurement points
+        color_I_low = '#0000EE'  # Color for low-gain I measurement
+        color_Q_low = '#0000AA'  # Color for low-gain Q measurement
+        color_I_high = '#EE0000'  # Color for high-gain I measurement
+        color_Q_high = '#AA0000'  # Color for high-gain Q measurement
 
+        # Clear the previous plot
         self.plotFigureModIQ.clear()
         ch = self.active_channel-1
         values = self.CalMod[ch,:,:,:]
 
+        # Plot low-gain I measurement as a vector in polar coordinates
         cplx_value = (values[0,0,0]+1j*values[0,1,0])
         self.plotFigureModIQ.plot([0,np.angle(cplx_value)],[0,np.abs(cplx_value)], color = color_I_low)
 
+        # Plot low-gain Q measurement as a vector in polar coordinates
         cplx_value = (values[0,0,1]+1j*values[0,1,1])
         self.plotFigureModIQ.plot([0,np.angle(cplx_value)],[0,np.abs(cplx_value)],color = color_Q_low)
 
+        # Plot high-gain I measurement as a vector in polar coordinates
         cplx_value = (values[1,0,0]+1j*values[1,1,0])
         self.plotFigureModIQ.plot([0,np.angle(cplx_value)],[0,np.abs(cplx_value)], color = color_I_high)
 
+        # Plot high-gain Q measurement as a vector in polar coordinates
         cplx_value = (values[1,0,1]+1j*values[1,1,1])
         self.plotFigureModIQ.plot([0,np.angle(cplx_value)],[0,np.abs(cplx_value)], color = color_Q_high)
 
+        # Highlight the currently selected measurement point
         d=self.get_values()
         self.plotFigureModIQ.scatter(d['Phase_rad'],d['Amp_lin'], marker = 'x')
         self.plotFigureModIQ.scatter(d['Phase_rad'],d['Amp_lin'], marker = 'o')
 
+        # Redraw the canvas to reflect the updates
         self.FigureModIQ.canvas.draw()
 
-        pass
 
     def update(self):
         '''Central function to update entries, figures and system settings after changes.'''
@@ -669,13 +677,15 @@ class ModulatorCalibrationObj:
 
     def set_modulators(self):
         '''Set the modulators to the correct state and send data to hardware.'''
-        I_values = self.I_values
-        Q_values = self.Q_values
+        I_values = self.I_values # Make a local copy which can then be changed.
+        Q_values = self.Q_values # Make a local copy which can then be changed.
 
+        #Add offset to the local I and Q values
         for ch in range(self.number_of_channels):
             I_values[ch]= I_values[ch] + MRexcite_Control.MRexcite_System.Modulator.IQoffset_hybrid[ch][0]
             Q_values[ch]= Q_values[ch] + MRexcite_Control.MRexcite_System.Modulator.IQoffset_hybrid[ch][1]
         
+        #Decide which value has to be changed in local variable. (We want to change only one digital value away from 0)
         if self.selected_value<2:
             mode = 0
             dimension = self.selected_value
@@ -683,16 +693,19 @@ class ModulatorCalibrationObj:
             mode = 1
             dimension = self.selected_value -2
 
+        #Apply local values to variables stored in System
         MRexcite_Control.MRexcite_System.Modulator.Amp_state = [mode]*self.number_of_channels #Set the correct amplifier mode
         MRexcite_Control.MRexcite_System.Modulator.I_values = I_values 
         MRexcite_Control.MRexcite_System.Modulator.Q_values = Q_values
 
+        #Add the test value to the correct variable in the MRexcite System
         ch=self.active_channel-1
         if dimension == 0:
             MRexcite_Control.MRexcite_System.Modulator.I_values[ch] = MRexcite_Control.MRexcite_System.Modulator.I_values[ch] + self.test_value_digital
         else:
             MRexcite_Control.MRexcite_System.Modulator.Q_values[ch] = MRexcite_Control.MRexcite_System.Modulator.Q_values[ch] + self.test_value_digital
 
+        #Apply all data to hardware.
         MRexcite_Control.MRexcite_System.SetAll()
 
 
@@ -742,10 +755,10 @@ class ModulatorCalibrationObj:
 
     def saveClose(self): #TODO: Normalize values.
         '''Close Calibration GUI and save the calibration data to file.'''
-        MRexcite_Control.MRexcite_System.Modulator.CalMod=self.CalMod
-        MRexcite_Control.MRexcite_System.Modulator.write_Mod_Cal()
+        MRexcite_Control.MRexcite_System.Modulator.CalMod=self.CalMod #Send calibration data to system.
+        MRexcite_Control.MRexcite_System.Modulator.write_Mod_Cal() #Write Calibration data to file.
         try:
-            MRexcite_Control.MRexcite_System.disable_system()
+            MRexcite_Control.MRexcite_System.disable_system() #Disable Unblank.
         except:
             print('Error! Could not transmit via SPI.')
-        self.WindowCalMod.destroy()
+        self.WindowCalMod.destroy() #Close window.
