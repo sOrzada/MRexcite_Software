@@ -45,9 +45,10 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
                     quit()
         except:
             pass
-    def enable_system(self):
+    def enable_system(self,**kwargs):
+        add = kwargs.get('add',0) #Can enable system and optionally light up one address.
         self.Unblank_Status=1
-        self.SPI.send_bitstream(bytes([128,0,0,0]))
+        self.SPI.send_bitstream(bytes([128,add,0,0]))
     def setup_system(self):
         self.TimingControl.trigger_off() #Trigger needs to be switched off before programming Modulators, because trigger is used to select adress.
         bytestream = self.TimingControl.return_byte_stream()
@@ -225,6 +226,17 @@ class ModulatorObj: #Contains all data and methods for Modulators
         except:
             print('Could not open IQ offset calibration file. Using no offset.')
         
+        #Initialize Variables for Modulator Calibration (Hybrid mode)
+        self.CalMod=np.zeros((self.number_of_channels,2,2,2)) #Number of Channels, number of power mode (low/high), number of dimension (2: I/Q), number of tests (2: I/Q)
+        self.CalMod[:,:,0,0]=1 #For initialization assume I is (1,0)
+        self.CalMod[:,:,1,1]=1 #For initialization assume Q is (0,1)
+
+        self.f_name_CalMod=os.path.dirname(__file__) + '/' + config['Calibration']['Calibration_File_Mod'] #Get file name for Zero Calibration from Config file.
+        try:
+            self.read_mod_cal()
+        except:
+            print('Could not open Modulator calibration file. Using generic data.')
+        
         #Initialize Variables for Linearity Calibration
         self.number_of_1D_samples=12
         Dig_Values = [0, 250, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500]
@@ -269,6 +281,10 @@ class ModulatorObj: #Contains all data and methods for Modulators
     def read_1D_Cal(self):
         '''Reads the 1D calibration data file which is specified in the config file.'''
         self.Cal1D = np.load(self.f_name_Cal1D)
+    
+    def read_mod_cal(self):
+        '''Reads the modulator calibration data file which is specified in the config file.'''
+        self.CalMod = np.load(self.f_name_CalMod)
 
     def write_IQ_offset(self):
         '''Saves the current IQ offset to the calibration file which is specified in the config file.'''
@@ -283,6 +299,10 @@ class ModulatorObj: #Contains all data and methods for Modulators
     def write_1D_Cal(self):
         '''Saves the current 1D calibration data to file specified in config file.'''
         np.save(self.f_name_Cal1D,self.Cal1D)
+
+    def write_Mod_Cal(self):
+        '''Saves the current Modulator Calibration data to file specified in config file.'''
+        np.save(self.f_name_CalMod,self.CalMod)
     
     def prepare_1D_Cal(self):
         '''Prepares the Pchip-Interpolators for 1D Amplitude and Phase correction\n
@@ -303,13 +323,21 @@ class ModulatorObj: #Contains all data and methods for Modulators
                 xi=self.Cal1D[channel,amp_mode,:,0]
                 yi=self.Cal1D[channel,amp_mode,:,2]
                 self.pchip_objects_phase[channel].append(scipy.interpolate.PchipInterpolator(xi,yi))
-
+    def prepare_mod_cal(self): #TODO: Check whether order in matrix is correct!
+        '''This function prepares the matrix inversions for the Modulator calibrations.'''
+        self.CalModInv = self.CalMod #Prepare array for inverted matrices
+        for ch in range(self.number_of_channels):
+            for mode in range(2):
+                matrix_temp = self.CalMod[ch,mode,:,:]
+                self.CalModInv[ch,mode,:,:] = np.linalg.inv(matrix_temp)
+        
 
     def set_amplitudes_phases_state(self,amplitudes_in,phases_in,state_in):
         '''Sets the digital I and Q values to achieve the amplitudes and phases specified in the input variables.\n
         This includes normalizing according to the calibration. Be aware that the pulse amplitude is normalized depending on the state of the RF preparation (Full or Hybrid modulation). Make sure that the state is set before applying amplitudes and phases!'''
         self.prepare_1D_Cal() #Prepare Pchip Objects. This is to make sure that these are current.
-        
+        self.prepare_mod_cal() #Prepare inverted matrices for modulator calibration.
+
         #Here we change the amplitudes of the pulse. The hybrid modulation expects pulses with an amplitude between 0 and 1, while the full modulation expects voltages.
         #If the modulation is hybrid and the maximum amplitude is >0, we normalize the pulse ampltiudes.
         if type(amplitudes_in[1]) is list:
@@ -369,7 +397,12 @@ class ModulatorObj: #Contains all data and methods for Modulators
 
             IQ=(pow(2,13)-1 +self.IQoffset[channel][0])+ 1j*(pow(2,13)-1 +self.IQoffset[channel][1]) + amp_digital*np.exp(1j*np.pi/180*ph) #Only includes offset correction.
         else: #Corrections for Hybrid modulation
-            IQ=(pow(2,13)-1 + self.IQoffset_hybrid[channel][0]+ 1j*(pow(2,13)-1 +self.IQoffset_hybrid[channel][1])) + amp*np.exp(1j*np.pi/180*ph) #Only offset calibration. TODO: Modulator calibration.
+            
+            cplx = amp*np.exp(1j*np.pi/180*ph) # Complex value of input
+            b = np.array([np.real(cplx),np.imag(cplx)]) #Vector with desired ideal I and Q value
+            b_corrected = self.CalModInv[channel,mode,:,:].dot(b) #This should now be corrected.
+            
+            IQ=(pow(2,13)-1 + self.IQoffset_hybrid[channel][0]+ 1j*(pow(2,13)-1 +self.IQoffset_hybrid[channel][1])) + b_corrected[0]+1j*b_corrected[1] #Complete correction.
         
         
         return IQ

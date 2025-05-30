@@ -39,6 +39,7 @@ class MainGUIObj:
         self.AdvancedUser=AdvancedUserObj()
         self.GeneralSettingsGUI=GeneralSettingsObj()
         self.CalibrateZero=MRexcite_Calibration.CalibrateZeroObj()
+        self.CalibrateMod = MRexcite_Calibration.ModulatorCalibrationObj()
         self.update_status()
 
     def menu_bar(self): #Menu Bar for main window.
@@ -306,7 +307,13 @@ class MainGUIObj:
         pass
 
     def calibrateModulators(self): #Calibration for hybrid modulation. (Modulators not run in saturation)
-        pass
+        if self.AdvancedUser.check()==TRUE:
+            self.CalibrateMod.openGUI()
+            self.CalibrateMod.WindowCalMod.focus()
+            self.CalibrateMod.WindowCalMod.wait_window(self.CalibrateMod.WindowCalMod)
+            self.update_status()
+        else:
+            pass
 
     def callHelp(self):
         pass

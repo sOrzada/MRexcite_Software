@@ -5,11 +5,13 @@ import scipy.interpolate
 import MRexcite_Control
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
 import os
 import math
 import scipy
 from PIL import Image, ImageTk
 from time import sleep
+import numpy as np
 
 U_0dBm = math.sqrt(0.05) #RMS voltage at 0 dBm on 50 Ohms.
 
@@ -32,7 +34,7 @@ class CalibrateZeroObj:
     def openGUI(self):
         '''Prepares and Opens the GUI or this Class Object.'''
         self.WindowMain = Toplevel()
-        self.WindowMain.iconbitmap(os.path.dirname(__file__) + '\images\MRexcite_logo.ico')
+        self.WindowMain.iconbitmap(os.path.dirname(__file__) + r'\images\MRexcite_logo.ico')
         self.WindowMain.title('Zero Point Calibration of Modulators')
         self.WindowMain.config(width=1200, height=550)
         self.WindowMain.protocol('WM_DELETE_WINDOW', lambda: self.saveClose())
@@ -56,7 +58,7 @@ class CalibrateZeroObj:
 
 
         #Load explanatory image and show in GUI
-        self.image_path=os.path.dirname(__file__) + '\Images\Zero_Point_Cal.jpg'
+        self.image_path=os.path.dirname(__file__) + r'\Images\Zero_Point_Cal.jpg'
         self.ph=Image.open(self.image_path)
         self.ph_resize=self.ph.resize((450,300), resample=1)
         self.ph_image=ImageTk.PhotoImage(self.ph_resize)
@@ -178,7 +180,7 @@ class CalibrateZeroObj:
         bitstream_RFprep = MRexcite_Control.MRexcite_System.RFprepModule.return_byte_stream() #Set RFprep Module to correct state.
         start_adress = MRexcite_Control.MRexcite_System.Modulator.start_address
         bitstream_adress = bytes([0 , start_adress-1+self.active_channel,0,0]) #sending this word as final word lets the active channels LED light up. Unblank is disabled.
-        bitstream_enable_mod = bytes([CB.clock,0,0,0])
+        bitstream_enable_mod = bytes([CB.clock,0,0,0]) #Send clock bit.
         bitstream = bitstream_RFprep+bitstream +bitstream_enable_mod+ bitstream_adress
         try:
             MRexcite_Control.MRexcite_System.SPI.send_bitstream(bitstream)
@@ -190,7 +192,7 @@ class CalibrateZeroObj:
             sleep(0.05)
 
 class CalibrateLinearity1DObj:
-    '''This class is used for calibrating for non-linearities of the Modulator/Amplifier system.'''
+    '''This class is used for calibrating for non-linearities of the Modulator/Amplifier system in full calibration mode.'''
     def __init__(self) -> None:
         self.number_of_channels = MRexcite_Control.MRexcite_System.Modulator.number_of_channels
         self.active_channel = 1
@@ -207,13 +209,13 @@ class CalibrateLinearity1DObj:
         
         #Open Main Window
         self.WindowMain = Toplevel()
-        self.WindowMain.iconbitmap(os.path.dirname(__file__) + '\images\MRexcite_logo.ico')
+        self.WindowMain.iconbitmap(os.path.dirname(__file__) + r'\images\MRexcite_logo.ico')
         self.WindowMain.title('Linearity Calibration of Amplifiers')
         self.WindowMain.config(width=1300, height=550)
         self.WindowMain.protocol('WM_DELETE_WINDOW', lambda: self.saveClose())
 
         #Load explanatory image and show in GUI
-        self.image_path=os.path.dirname(__file__) + '\Images\Cal_Lin1D.jpg'
+        self.image_path=os.path.dirname(__file__) + r'\Images\Cal_Lin1D.jpg'
         self.ph=Image.open(self.image_path)
         self.ph_resize=self.ph.resize((550,375), resample=1)
         self.ph_image=ImageTk.PhotoImage(self.ph_resize)
@@ -281,7 +283,7 @@ class CalibrateLinearity1DObj:
         R2= Radiobutton(self.WindowMain, text='High Power Mode', variable=self.Amp_Mode, value=1, command=self.sel)
         R2.place(x=x_start,y=y_start+20,anchor=W)
     
-    def init_dig_value_select(self, x_center, y_center): #Initialize Buttons and Label for Channel selection
+    def init_dig_value_select(self, x_center, y_center): #Initialize Buttons and Label for Digital Value Selection
         '''Initializes the channel selection interface at the coordinates specified by x_center and y_center.'''
         Caption1 = Label(self.WindowMain, height=1, width=20, text='Digital Value Selector')
         Caption1.place(x=x_center,y=y_center-30, anchor=CENTER)
@@ -479,8 +481,271 @@ class CalibrateLinearity1DObj:
         self.WindowMain.destroy()
             
 class ModulatorCalibrationObj:
+    '''Calibration for Modulators in Hybrid Mode (including gain and phase offset of amplifiers in linear operation).\n
+    In Hybrid mode the I and Q channels can have different gain and they might not be 90° apart. To measure this, 
+    we need to measure the amplitude and phase for a fixed I and Q value, respectively. Then we can set up a system of equations to
+    calculate the I and Q value to achieve a certain amplitude and phase. We need to do this for low and high power modes of the system, respectively,
+    to account for the ampltiude and phase errors of the amplifiers.\n
+    '''
     def __init__(self) -> None:
         self.number_of_channels = MRexcite_Control.MRexcite_System.Modulator.number_of_channels
         self.active_channel = 1
+        self.IQoffset = MRexcite_Control.MRexcite_System.Modulator.IQoffset_hybrid
+        self.I_values = [pow(2,14)-1]*self.number_of_channels
+        self.Q_values = [pow(2,14)-1]*self.number_of_channels
+
+        self.selected_value = 0 #Selected value for Measurement. 0:I low, 1:Q low, 2: I high, 3: Q high
+        self.CalMod = MRexcite_Control.MRexcite_System.Modulator.CalMod      #Load 1D Calibration from Modulators.
+        self.test_value_digital = 1000 #Digital value used for test.
+
+        
+
+    def openGUI(self):
+        #Preparations for safety:
+        self.active_channel = 1 #Always start with first channel when user activates GUI.
+        self.system_active = 0 #This variable indicates whether the system should be active or not.
+        #Set System to correct state:
+        MRexcite_Control.MRexcite_System.disable_system() #System needs to be disabled on start to avoid accidents.
+        
+        #Open Main Window
+        self.WindowCalMod = Toplevel()
+        self.WindowCalMod.iconbitmap(os.path.dirname(__file__) + r'\images\MRexcite_logo.ico')
+        self.WindowCalMod.title('Calibration of amplifiers')
+        self.WindowCalMod.config(width=1300, height=550)
+        self.WindowCalMod.protocol('WM_DELETE_WINDOW', lambda: self.saveClose())
+        
+        self.init_unblank_button(150,300)
+        self.channelSelectInit(150,70)
+        self.init_value_select(150,150)
+        self.init_entry_boxes(x_center=110, y_center=200)
+
+
+        #Initialize Figure for IQ visualization
+        self.FigureModIQ = Figure(figsize=(5,5), dpi=80)
+        self.plotFigureModIQ = self.FigureModIQ.add_subplot(111,projection='polar') #Axes for Amplitude
+        self.canvasFigureModIQ = FigureCanvasTkAgg(self.FigureModIQ, master=self.WindowCalMod)
+        self.canvasFigureModIQ.get_tk_widget().place(x=500, y=250, anchor='center')
+        self.plotFigureModIQ.set_ylim([0,2])
+
+        #Set System state
+        MRexcite_Control.MRexcite_System.RFprepModule.set_gain_low() #This is the calibration for the low gain state, so set it.
+
+        self.update()
+        
+
+    def channelSelectInit(self, x_center:int, y_center:int): #Initialize Buttons and Label for Channel selection
+        '''Initializes the channel selection interface at the coordinates specified by x_center and y_center.'''
+        Button_prev = Button(self.WindowCalMod, width=3,height=1, text='<', command=lambda: self.channelselect(-1))
+        Button_next = Button(self.WindowCalMod, width=3,height=1, text='>', command=lambda: self.channelselect(+1))
+        self.label_channel = Label(self.WindowCalMod, height=1, width=6, text='Ch ' + str(self.active_channel), relief='sunken', bg='white')
+        Button_prev.place(x=x_center-50,y=y_center,anchor='center')
+        self.label_channel.place(x=x_center,y=y_center, anchor='center')
+        Button_next.place(x=x_center+50,y=y_center, anchor='center')
+    
+    def channelselect(self,a:int): #Select channel with buttons and stay within actual channel count
+        '''Selects a channel and makes sure you stay within actual channel count.'''
+        self.system_active = 0 #Set System to inactive to avoid accidents. User must re-enable system. (self.update() must be called to make this happen!)
+        self.active_channel = self.active_channel + a
+        if self.active_channel<1:
+            self.active_channel=1
+        elif self.active_channel>self.number_of_channels:
+            self.active_channel=self.number_of_channels
+        self.label_channel.config(text='Ch ' + str(self.active_channel))
+        
+        self.update()
+    
+    def init_unblank_button(self,x_center:int,y_center:int):
+        self.Button_Unblank = Button(self.WindowCalMod,width=10, height=3, text='Unblank', command=lambda: self.toggle_unblank())
+        self.Button_Unblank.place(x=x_center,y=y_center,anchor=CENTER)
+
+    def init_value_select(self, x_center:int, y_center:int): #Initialize Buttons and Label for Digital Value Selection
+        '''Initializes the channel selection interface at the coordinates specified by x_center and y_center.'''
+        Caption1 = Label(self.WindowCalMod, height=1, width=20, text='Digital Value Selector')
+        Caption1.place(x=x_center,y=y_center-30, anchor=CENTER)
+        Button_prev = Button(self.WindowCalMod, width=3,height=1, text='<', command=lambda: self.value_select(-1))
+        Button_next = Button(self.WindowCalMod, width=3,height=1, text='>', command=lambda: self.value_select(+1))
+        self.label_dig_value = Label(self.WindowCalMod, height=1, width=10, text='I low', relief='sunken', bg='white')
+        Button_prev.place(x=x_center-70,y=y_center,anchor='center')
+        self.label_dig_value.place(x=x_center,y=y_center, anchor='center')
+        Button_next.place(x=x_center+70,y=y_center, anchor='center')
+    
+    def value_select(self,change_in: int):
+        '''Select which value should be played out'''
+        self.selected_value = self.selected_value+change_in
+        display_list = ['I low','Q low', 'I high', 'Q_high']
+        #Make sure to stay in the range 0-3:
+        if self.selected_value<0:
+            self.selected_value=0
+        if self.selected_value>3:
+            self.selected_value = 3
+        
+        self.label_dig_value.config(text=display_list[self.selected_value]) #Set text
+        self.update()
+
+    def init_entry_boxes(self,x_center,y_center):
+        '''Initializes the entry boxes for amplitude and phase inputs'''
+        self.dB_value = StringVar()
+        self.deg_value = StringVar()
+        
+        self.entry_db = Entry(self.WindowCalMod, width=12, textvariable=self.dB_value)
+        self.entry_db.place(x=x_center,y=y_center-10, anchor=W)
+        label_dB = Label(self.WindowCalMod, height=1, width=6, text='dB')
+        label_dB.place(x=x_center-60,y=y_center-10, anchor=W)
+        self.entry_degree = Entry(self.WindowCalMod, width=12, textvariable=self.deg_value)
+        self.entry_degree.place(x=x_center,y=y_center+10, anchor=W)
+        label_deg = Label(self.WindowCalMod, height=1, width=6, text='°')
+        label_deg.place(x=x_center-60,y=y_center+10,anchor=W)
+        Button_entry= Button(self.WindowCalMod, width=5,height=2, text='Apply', command=lambda: self.apply_entry())
+        Button_entry.place(x=x_center+110, y=y_center, anchor=CENTER)
+    
+    def toggle_unblank(self):
+        '''This function is called when the Unblank-Button is pressed. Toggles system states.'''
+        if self.system_active==0:
+            self.system_active=1
+        else:
+            self.system_active=0
+        
+        self.update()
+    
+    def update_figure(self):
+        color_I_low = '#0000EE'
+        color_Q_low = '#0000AA'
+        color_I_high = '#EE0000'
+        color_Q_high = '#AA0000'
+
+        self.plotFigureModIQ.clear()
+        ch = self.active_channel-1
+        values = self.CalMod[ch,:,:,:]
+
+        cplx_value = (values[0,0,0]+1j*values[0,1,0])
+        self.plotFigureModIQ.plot([0,np.angle(cplx_value)],[0,np.abs(cplx_value)], color = color_I_low)
+
+        cplx_value = (values[0,0,1]+1j*values[0,1,1])
+        self.plotFigureModIQ.plot([0,np.angle(cplx_value)],[0,np.abs(cplx_value)],color = color_Q_low)
+
+        cplx_value = (values[1,0,0]+1j*values[1,1,0])
+        self.plotFigureModIQ.plot([0,np.angle(cplx_value)],[0,np.abs(cplx_value)], color = color_I_high)
+
+        cplx_value = (values[1,0,1]+1j*values[1,1,1])
+        self.plotFigureModIQ.plot([0,np.angle(cplx_value)],[0,np.abs(cplx_value)], color = color_Q_high)
+
+        d=self.get_values()
+        self.plotFigureModIQ.scatter(d['Phase_rad'],d['Amp_lin'], marker = 'x')
+        self.plotFigureModIQ.scatter(d['Phase_rad'],d['Amp_lin'], marker = 'o')
+
+        self.FigureModIQ.canvas.draw()
 
         pass
+
+    def update(self):
+        '''Central function to update entries, figures and system settings after changes.'''
+        #Set Modulators ():
+        self.set_modulators()
+
+        #Set unblank status:
+        if self.system_active==0:
+            try:
+                MRexcite_Control.MRexcite_System.disable_system()
+            except:
+                pass
+            self.Button_Unblank.config(relief='raised')
+        else:
+            try:
+                MRexcite_Control.MRexcite_System.enable_system(add = self.active_channel-1 + MRexcite_Control.MRexcite_System.Modulator.start_address) #Enable and light up channel
+            except:
+                pass
+            self.Button_Unblank.config(relief='sunken')
+        
+       
+        #Write current internal values into entry fields:
+        d = self.get_values()
+        self.dB_value.set(str(d['Amp']))
+        self.deg_value.set(str(d['Phase']))
+
+        #Update Figure:
+        self.update_figure()
+
+
+
+    def set_modulators(self):
+        '''Set the modulators to the correct state and send data to hardware.'''
+        I_values = self.I_values
+        Q_values = self.Q_values
+
+        for ch in range(self.number_of_channels):
+            I_values[ch]= I_values[ch] + MRexcite_Control.MRexcite_System.Modulator.IQoffset_hybrid[ch][0]
+            Q_values[ch]= Q_values[ch] + MRexcite_Control.MRexcite_System.Modulator.IQoffset_hybrid[ch][1]
+        
+        if self.selected_value<2:
+            mode = 0
+            dimension = self.selected_value
+        else:
+            mode = 1
+            dimension = self.selected_value -2
+
+        MRexcite_Control.MRexcite_System.Modulator.Amp_state = [mode]*self.number_of_channels #Set the correct amplifier mode
+        MRexcite_Control.MRexcite_System.Modulator.I_values = I_values 
+        MRexcite_Control.MRexcite_System.Modulator.Q_values = Q_values
+
+        ch=self.active_channel-1
+        if dimension == 0:
+            MRexcite_Control.MRexcite_System.Modulator.I_values[ch] = MRexcite_Control.MRexcite_System.Modulator.I_values[ch] + self.test_value_digital
+        else:
+            MRexcite_Control.MRexcite_System.Modulator.Q_values[ch] = MRexcite_Control.MRexcite_System.Modulator.Q_values[ch] + self.test_value_digital
+
+        MRexcite_Control.MRexcite_System.SetAll()
+
+
+    def get_values(self):
+        '''Returns a dictionary where 'Amp' is the Amplitude in dB and 'Phase' is the phase in degree, taken from the calibration data of the current point.'''
+        ch = self.active_channel-1
+        if self.selected_value<2:
+            mode = 0
+            dimension = self.selected_value
+        else:
+            mode = 1
+            dimension = self.selected_value -2
+        I_cal = self.CalMod[ch,mode,0,dimension]
+        Q_cal = self.CalMod[ch,mode,1,dimension]
+        value_cplx = I_cal + 1j * Q_cal
+        d = dict()
+        d['Amp_lin'] = np.abs(value_cplx)
+        d['Phase_rad'] = np.angle(value_cplx)
+        d['Cplx'] = value_cplx
+        d['Amp'] = np.round(20*np.log10(np.abs(value_cplx)),3) #rounding is done to avoid numbers like "1.934343e-15" to be shown. More than 2 digits after comma for dB values are overkill anyway.
+        d['Phase']=np.angle(value_cplx)/np.pi*180
+        return d
+
+    def apply_entry(self):
+        '''Applies Entries to Calibration array when button is pressed.''' 
+        ch=self.active_channel-1
+        input_dB = float(self.entry_db.get())
+        input_phase = float(self.entry_degree.get())
+        amplitude = pow(10,input_dB/20)
+        phase = input_phase/180 * np.pi
+        IQ_meas_cplx = amplitude * np.exp(1j*phase)
+        I_meas = np.real(IQ_meas_cplx)
+        Q_meas = np.imag(IQ_meas_cplx)
+        
+        #Depending on "selected_values" decide where to write measured value in array
+        if self.selected_value<2:
+            mode = 0
+            dimension = self.selected_value
+        else:
+            mode = 1
+            dimension = self.selected_value -2
+
+        self.CalMod[ch,mode,0,dimension]=I_meas
+        self.CalMod[ch,mode,1,dimension]=Q_meas
+
+        self.update()
+
+    def saveClose(self): #TODO: Normalize values.
+        '''Close Calibration GUI and save the calibration data to file.'''
+        MRexcite_Control.MRexcite_System.Modulator.CalMod=self.CalMod
+        MRexcite_Control.MRexcite_System.Modulator.write_Mod_Cal()
+        try:
+            MRexcite_Control.MRexcite_System.disable_system()
+        except:
+            print('Error! Could not transmit via SPI.')
+        self.WindowCalMod.destroy()
