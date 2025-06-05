@@ -44,6 +44,7 @@ class MainGUIObj:
         self.GeneralSettingsGUI=GeneralSettingsObj()
         self.CalibrateZero=MRexcite_Calibration.CalibrateZeroObj()
         self.CalibrateMod = MRexcite_Calibration.ModulatorCalibrationObj()
+        self.CalibrateLin = MRexcite_Calibration.CalibrateLinearity1DObj()
         self.update_status()
 
     def menu_bar(self): #Menu Bar for main window.
@@ -164,6 +165,7 @@ class MainGUIObj:
         
         
         #Prepare Text Box
+        # Set the text box state to NORMAL to allow modifications to its content.
         self.status_text_box.config(state=NORMAL)
         self.status_text_box.delete('1.0',END)
         status_text='Current status of system:\n\n'
@@ -214,6 +216,9 @@ class MainGUIObj:
         else:
             sampling_in_kHz=10e6 / MRexcite_Control.MRexcite_System.TriggerModule.clock_divider / 1000
             number_of_samples = MRexcite_Control.MRexcite_System.TriggerModule.clock_counter
+            # Calculate the length of the pulse in milliseconds.
+            # Formula: number_of_samples * (1 / sampling_rate_in_kHz)
+            # This converts the number of samples into time duration based on the sampling rate.
             length_of_pulse_in_ms = number_of_samples*1/sampling_in_kHz
             status_text = status_text   + 'Trigger is generated with following paramters:\n'\
                                         + '\tSampling rate: ' + str(sampling_in_kHz) + ' kHz\n'\
@@ -225,7 +230,7 @@ class MainGUIObj:
 
         #Modulator Status
         max_number_samples = max(MRexcite_Control.MRexcite_System.Modulator.counter_max)
-        ID_max = MRexcite_Control.MRexcite_System.Modulator.counter_max.index(max(MRexcite_Control.MRexcite_System.Modulator.counter_max))
+        ID_max = MRexcite_Control.MRexcite_System.Modulator.counter_max.index(max_number_samples)
 
         status_text = status_text + 'Maximum number of samples in pulse: ' + str(max_number_samples) + ' (ch: ' + str(ID_max+1) +')\n\n'
 
@@ -248,8 +253,8 @@ class MainGUIObj:
         if MRexcite_Control.MRexcite_System.Unblank_Status==1:
             try:
                 MRexcite_Control.MRexcite_System.enable_system()
-            except:
-                pass
+            except Exception as e:
+                print(f"Error enabling system: {e}")
                     
 
         self.status_text_box.insert('1.0',status_text)
@@ -261,10 +266,86 @@ class MainGUIObj:
     def saveFile(self): #Save current settings and pulses for a later session.
         pass
 
-    def loadShim(self): #Load a shim file
-        f_name=filedialog.askopenfile(mode='rb', filetypes=(('Matlab File','*.mat'),('Numpy Files','*.npy')), defaultextension=(('Matlab File','*.mat'),))
+    def loadShim(self, **kwargs): #Load a shim file
+        '''Loads a shim file, either Matlab (.mat) or Numpy (.npy) based.\n
+        Matlab: Needs to contain variables with one being "shim".\n
+        Numpy: Pack variables in a dictionary. One variable needs to be "shim".'''
+        f_name = kwargs.get('fname',[])
+        if f_name==[]:
+            f_name=filedialog.askopenfile(mode='rb', filetypes=(('Matlab File','*.mat'),('Numpy Files','*.npz')), defaultextension=(('Matlab File','*.mat'),))
         self.displayShim.set(str(f_name.name))
-    
+        if f_name is not None:
+            try:
+                if f_name.name.endswith('.mat'):
+                    data = scipy.io.loadmat(f_name.name)
+                elif f_name.name.endswith('.npz'):
+                    data = np.load(f_name.name)
+                else:
+                    print('Unsupported file format.')
+            except Exception as e:
+                print(f"Error loading shim file: {e}")
+        
+        # Check if the loaded data is a dictionary
+        if not isinstance(data, dict) and not isinstance(data, np.lib.npyio.NpzFile):
+            print('Loaded data is not a valid dictionary.')
+            return
+        # Check if the dictionary contains 'shim'
+        if 'shim' in data:
+            shim_data = data['shim']
+            if isinstance(shim_data, np.ndarray):
+                MRexcite_Control.MRexcite_System.Modulator.set_amplitudes_phases_state(shim_data[:,0,:],shim_data[:,1,:],shim_data[:,2,:])
+            else:
+                print('Loaded shim data is not a valid numpy array.')
+                return
+        else:
+            print('Loaded data does not contain "shim" key.')
+            return
+        
+        #Check for desired gain.
+        if 'gain' in data:
+            gain=data['gain']
+            if isinstance(gain, str):
+                if gain == 'high':
+                    MRexcite_Control.MRexcite_System.RFprepModule.set_gain_high()
+                else:
+                    MRexcite_Control.MRexcite_System.RFprepModule.set_gain_low()
+            elif isinstance(gain,float) or isinstance(gain, int):
+                MRexcite_Control.MRexcite_System.RFprepModule.set_gain(gain)
+            else:
+                print('Error in "gain". Wrong format. Reverting to Hybrid shimming.')
+                MRexcite_Control.MRexcite_System.RFprepModule.set_gain_low()
+        else: #If no gain is given, revert to hybrid shimming.
+            MRexcite_Control.MRexcite_System.RFprepModule.set_gain_low()
+        
+        #Check for trigger settings.
+        if 'OSCbit' in data: #Check which OSCbit to use. Revert to OSC0
+            OSCbit=data['OSCbit']
+            if OSCbit == 1:
+                MRexcite_Control.MRexcite_System.TriggerModule.set_OSC1()
+            else:
+                MRexcite_Control.MRexcite_System.TriggerModule.set_OSC0()
+        else: #If no settings for trigger are provided, set to feedthrough and OSC0
+            MRexcite_Control.MRexcite_System.TriggerModule.set_OSC0()
+
+        if 'trigger' in data: #Check for Trigger settings. If no trigger settings, revert to feedthrough.
+            Trigger = data['trigger']
+            MRexcite_Control.MRexcite_System.TriggerModule.set_clock(Trigger[0])
+            MRexcite_Control.MRexcite_System.TriggerModule.clock_counter = Trigger[1]
+            MRexcite_Control.MRexcite_System.TriggerModule.set_Generate_Sampling()
+        else:
+            MRexcite_Control.MRexcite_System.TriggerModule.set_OSC_feedthrough()
+        
+        #Check whether there are settings for reception. If so, apply.
+        if 'rx' in data:
+            rx=data['rx']
+            if isinstance(rx,int):
+                MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=rx
+            else:
+                pass
+        
+        #Update Status.
+        self.update_status()
+
     def setCPplus(self): #Applies the CP+ mode for the Body coil.
         pass
 
@@ -308,7 +389,12 @@ class MainGUIObj:
             pass
 
     def calibrateSystemLin1D(self): #Calibration for full modulation including amplifiers
-        pass
+        if self.AdvancedUser.check()==TRUE:
+            self.CalibrateLin.openGUI()
+            self.CalibrateLin.WindowCalLin.focus()
+            self.CalibrateLin.WindowCalLin.wait_window(self.CalibrateLin.WindowCalLin)
+            self.update_status()
+        
 
     def calibrateModulators(self): #Calibration for hybrid modulation. (Modulators not run in saturation)
         if self.AdvancedUser.check()==TRUE:

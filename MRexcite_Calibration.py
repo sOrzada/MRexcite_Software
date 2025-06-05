@@ -208,23 +208,23 @@ class CalibrateLinearity1DObj:
         self.dig_index = 0  #Always start with the first digital value (which is 0, so no danger to components or people)
         
         #Open Main Window
-        self.WindowMain = Toplevel()
-        self.WindowMain.iconbitmap(os.path.dirname(__file__) + r'\images\MRexcite_logo.ico')
-        self.WindowMain.title('Linearity Calibration of Amplifiers')
-        self.WindowMain.config(width=1300, height=550)
-        self.WindowMain.protocol('WM_DELETE_WINDOW', lambda: self.saveClose())
+        self.WindowCalLin = Toplevel()
+        self.WindowCalLin.iconbitmap(os.path.dirname(__file__) + r'\images\MRexcite_logo.ico')
+        self.WindowCalLin.title('Linearity Calibration of Amplifiers')
+        self.WindowCalLin.config(width=1300, height=550)
+        self.WindowCalLin.protocol('WM_DELETE_WINDOW', lambda: self.saveClose())
 
         #Load explanatory image and show in GUI
         self.image_path=os.path.dirname(__file__) + r'\Images\Cal_Lin1D.jpg'
         self.ph=Image.open(self.image_path)
         self.ph_resize=self.ph.resize((550,375), resample=1)
         self.ph_image=ImageTk.PhotoImage(self.ph_resize)
-        self.label_image = Label(self.WindowMain, image=self.ph_image)
+        self.label_image = Label(self.WindowCalLin, image=self.ph_image)
         self.label_image.config(image=self.ph_image)
         self.label_image.place(x=1000,y=250, anchor='center')
 
         #Save & Close Button
-        self.ButtonSaveClose = Button(self.WindowMain, width=10, height=2, text='Save & Close', command=self.saveClose)
+        self.ButtonSaveClose = Button(self.WindowCalLin, width=10, height=2, text='Save & Close', command=self.saveClose)
         self.ButtonSaveClose.place(x=150, y=400, anchor='center')
         
         #Channel Select
@@ -243,34 +243,12 @@ class CalibrateLinearity1DObj:
         self.Figurelin = Figure(figsize=(5,5), dpi=80)
         self.plotFigurelin = self.Figurelin.add_subplot(111) #Axes for Amplitude
         self.plotFigureAngle= self.plotFigurelin.twinx() #Axes for Phase
-        self.canvasFigurelin = FigureCanvasTkAgg(self.Figurelin, master=self.WindowMain)
+        self.canvasFigurelin = FigureCanvasTkAgg(self.Figurelin, master=self.WindowCalLin)
         self.canvasFigurelin.get_tk_widget().place(x=500, y=250, anchor='center')
 
-        """ #Set Timings for Calibration: 1% Duty Cycle, 1ms pulses. This should be long enough for triggered measurements.
-        MRexcite_Control.MRexcite_System.disable_system()
-        MRexcite_Control.MRexcite_System.TimingControl.clock_divider=1000
-        MRexcite_Control.MRexcite_System.TimingControl.counter_Tx=10
-        MRexcite_Control.MRexcite_System.TimingControl.counter_Rx=990
-        MRexcite_Control.MRexcite_System.TimingControl.set_alternating_mode()
-        data=MRexcite_Control.MRexcite_System.TimingControl.return_byte_stream()
-        try:
-            MRexcite_Control.MRexcite_System.SPI.send_bitstream(data)
-        except:
-            print('Error: Could not transmit via SPI')
-        #Set RF source to external
-        MRexcite_Control.MRexcite_System.SignalSource.set_external()
-        data=MRexcite_Control.MRexcite_System.SignalSource.return_byte_stream()
-        try:
-            MRexcite_Control.MRexcite_System.SPI.send_bitstream(data)
-        except:
-            print('Error: Could not transmit via SPI')
-        #Set modulators to zero point transmission in low power mode
-        MRexcite_Control.MRexcite_System.Modulator.set_amplitudes_phases_state([0]*self.number_of_channels,[0]*self.number_of_channels,[0]*self.number_of_channels)
-        self.set_Modulators()
-        try:
-            MRexcite_Control.MRexcite_System.enable_system() #Here the system is in a safe state and can be started.
-        except:
-            print('Error: Could not transmit via SPI!') """
+        #Set System state
+        MRexcite_Control.MRexcite_System.RFprepModule.set_gain_high() #We can only calibrate for linearity in high power mode, so set it.
+        
 
         #Update
         self.update()
@@ -278,18 +256,18 @@ class CalibrateLinearity1DObj:
     def init_radiobuttons(self, x_start, y_start):
         '''Initializes the radio buttons for selecting amplifier state.'''
         self.Amp_Mode=IntVar()
-        R1= Radiobutton(self.WindowMain, text='Low Power Mode', variable=self.Amp_Mode, value=0, command=self.sel)
+        R1= Radiobutton(self.WindowCalLin, text='Low Power Mode', variable=self.Amp_Mode, value=0, command=self.sel)
         R1.place(x=x_start,y=y_start,anchor=W)
-        R2= Radiobutton(self.WindowMain, text='High Power Mode', variable=self.Amp_Mode, value=1, command=self.sel)
+        R2= Radiobutton(self.WindowCalLin, text='High Power Mode', variable=self.Amp_Mode, value=1, command=self.sel)
         R2.place(x=x_start,y=y_start+20,anchor=W)
     
     def init_dig_value_select(self, x_center, y_center): #Initialize Buttons and Label for Digital Value Selection
         '''Initializes the channel selection interface at the coordinates specified by x_center and y_center.'''
-        Caption1 = Label(self.WindowMain, height=1, width=20, text='Digital Value Selector')
+        Caption1 = Label(self.WindowCalLin, height=1, width=20, text='Digital Value Selector')
         Caption1.place(x=x_center,y=y_center-30, anchor=CENTER)
-        Button_prev = Button(self.WindowMain, width=3,height=1, text='<', command=lambda: self.dig_value_select(-1))
-        Button_next = Button(self.WindowMain, width=3,height=1, text='>', command=lambda: self.dig_value_select(+1))
-        self.label_dig_value = Label(self.WindowMain, height=1, width=6, text=str(0), relief='sunken', bg='white')
+        Button_prev = Button(self.WindowCalLin, width=3,height=1, text='<', command=lambda: self.dig_value_select(-1))
+        Button_next = Button(self.WindowCalLin, width=3,height=1, text='>', command=lambda: self.dig_value_select(+1))
+        self.label_dig_value = Label(self.WindowCalLin, height=1, width=6, text=str(0), relief='sunken', bg='white')
         Button_prev.place(x=x_center-50,y=y_center,anchor='center')
         self.label_dig_value.place(x=x_center,y=y_center, anchor='center')
         Button_next.place(x=x_center+50,y=y_center, anchor='center')
@@ -300,22 +278,22 @@ class CalibrateLinearity1DObj:
         self.dB_value = StringVar()
         self.deg_value = StringVar()
         
-        self.entry_db = Entry(self.WindowMain, width=12, textvariable=self.dB_value)
+        self.entry_db = Entry(self.WindowCalLin, width=12, textvariable=self.dB_value)
         self.entry_db.place(x=x_center,y=y_center-10, anchor=W)
-        label_dB = Label(self.WindowMain, height=1, width=6, text='dB')
+        label_dB = Label(self.WindowCalLin, height=1, width=6, text='dB')
         label_dB.place(x=x_center-60,y=y_center-10, anchor=W)
-        self.entry_degree = Entry(self.WindowMain, width=12, textvariable=self.deg_value)
+        self.entry_degree = Entry(self.WindowCalLin, width=12, textvariable=self.deg_value)
         self.entry_degree.place(x=x_center,y=y_center+10, anchor=W)
-        label_deg = Label(self.WindowMain, height=1, width=6, text='°')
+        label_deg = Label(self.WindowCalLin, height=1, width=6, text='°')
         label_deg.place(x=x_center-60,y=y_center+10,anchor=W)
-        Button_entry= Button(self.WindowMain, width=5,height=2, text='Apply', command=lambda: self.apply_entry())
+        Button_entry= Button(self.WindowCalLin, width=5,height=2, text='Apply', command=lambda: self.apply_entry())
         Button_entry.place(x=x_center+110, y=y_center, anchor=CENTER)
 
     def channelSelectInit(self, x_center, y_center): #Initialize Buttons and Label for Channel selection
         '''Initializes the channel selection interface at the coordinates specified by x_center and y_center.'''
-        Button_prev = Button(self.WindowMain, width=3,height=1, text='<', command=lambda: self.channelselect(-1))
-        Button_next = Button(self.WindowMain, width=3,height=1, text='>', command=lambda: self.channelselect(+1))
-        self.label_channel = Label(self.WindowMain, height=1, width=6, text='Ch ' + str(self.active_channel), relief='sunken', bg='white')
+        Button_prev = Button(self.WindowCalLin, width=3,height=1, text='<', command=lambda: self.channelselect(-1))
+        Button_next = Button(self.WindowCalLin, width=3,height=1, text='>', command=lambda: self.channelselect(+1))
+        self.label_channel = Label(self.WindowCalLin, height=1, width=6, text='Ch ' + str(self.active_channel), relief='sunken', bg='white')
         Button_prev.place(x=x_center-50,y=y_center,anchor='center')
         self.label_channel.place(x=x_center,y=y_center, anchor='center')
         Button_next.place(x=x_center+50,y=y_center, anchor='center')
@@ -479,7 +457,7 @@ class CalibrateLinearity1DObj:
             print('Error! Could not transmit via SPI.')
         MRexcite_Control.MRexcite_System.Modulator.Cal1D=self.Cal1D #Write the new calibration data into the Modulator.
         MRexcite_Control.MRexcite_System.Modulator.write_1D_Cal()
-        self.WindowMain.destroy()
+        self.WindowCalLin.destroy()
             
 class ModulatorCalibrationObj:
     '''Calibration for Modulators in Hybrid Mode (including gain and phase offset of amplifiers in linear operation).\n

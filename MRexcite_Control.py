@@ -18,7 +18,7 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
     '''Here we combine all classes to have a single object for the MRexcite System.'''
     Unblank_Status=0
     def __init__(self,config):
-
+        self.config = config #Make the config file data available to outside queries.
         if config['DEFAULT']['Modulator_Module'] == 'true':
             self.Modulator = ModulatorObj(config)
         
@@ -160,7 +160,7 @@ class ControlByteObj: #Contains the control bits. Select the state and add for c
 class USB2SPIObj: #Contains all data and methods for USB2SPI hardware. (Communication between PC and MRexcite Hardware)
     '''This class contains all methods to send bit streams through a FT4222 in SPI mode.'''
     def __init__(self,config):
-        
+        self.lastWord = [] #Variable to store the last 4 bytes (the last word) sent by the USB2SPI Object.
         #Open device with default Name
         self.devA = ft4222.openByDescription('FT4222 A')
         
@@ -191,6 +191,7 @@ class USB2SPIObj: #Contains all data and methods for USB2SPI hardware. (Communic
             else:
                 bitstream_send=bitstream[a*max_num_bytes:stream_length]
             self.devA.spiMaster_SingleWrite(bitstream_send, True)
+        self.lastWord = bitstream[4:] # Save the last 4 bytes so they can be resend
 
 
 class ModulatorObj: #Contains all data and methods for Modulators
@@ -338,6 +339,22 @@ class ModulatorObj: #Contains all data and methods for Modulators
         self.prepare_1D_Cal() #Prepare Pchip Objects. This is to make sure that these are current.
         self.prepare_mod_cal() #Prepare inverted matrices for modulator calibration.
 
+        #First we need to check, whether amplitudes, phases and states contain the correct number of channels. (This is for the future when we might introduce additional, optional channels e.g. for X-nuclei)
+        len_amp = len(amplitudes_in)
+        len_diff = self.number_of_channels - len_amp
+        if len_diff > 0:
+            if isinstance(amplitudes_in[0], list):
+                for a in range(len_diff):
+                    amplitudes_in.append([0]*len(amplitudes_in[0]))
+                    phases_in.append([0]*len(amplitudes_in[0]))
+                    state_in.append([0]*len(amplitudes_in[0]))
+            else:
+                for a in range(len_diff):
+                    amplitudes_in.append(0)
+                    phases_in.append(0)
+                    state_in.append(0)
+
+
         #Here we change the amplitudes of the pulse. The hybrid modulation expects pulses with an amplitude between 0 and 1, while the full modulation expects voltages.
         #If the modulation is hybrid and the maximum amplitude is >0, we normalize the pulse ampltiudes.
         if type(amplitudes_in[1]) is list:
@@ -352,6 +369,8 @@ class ModulatorObj: #Contains all data and methods for Modulators
                 amplitudes_in[a]=[i/maxAmp for i in amplitudes_in[a]]
         elif (maxAmp>1):
             amplitudes_in=[i/maxAmp for i in amplitudes_in]
+
+
 
         self.amplitudes=amplitudes_in
         self.phases=phases_in
