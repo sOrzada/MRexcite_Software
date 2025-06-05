@@ -293,7 +293,13 @@ class MainGUIObj:
         if 'shim' in data:
             shim_data = data['shim']
             if isinstance(shim_data, np.ndarray):
-                MRexcite_Control.MRexcite_System.Modulator.set_amplitudes_phases_state(shim_data[:,0,:],shim_data[:,1,:],shim_data[:,2,:])
+                if shim_data.ndim == 3:
+                    MRexcite_Control.MRexcite_System.Modulator.set_amplitudes_phases_state(shim_data[:,0,:].tolist(),shim_data[:,1,:].tolist(),(shim_data[:,2,:].astype(int)).tolist())
+                elif shim_data.ndim == 2:
+                    MRexcite_Control.MRexcite_System.Modulator.set_amplitudes_phases_state(shim_data[:,0].tolist(),shim_data[:,1].tolist(),(shim_data[:,2].astype(int)).tolist())
+                else:
+                    print('Shim has the wrong number of dimensions.')
+                    return
             else:
                 print('Loaded shim data is not a valid numpy array.')
                 return
@@ -304,13 +310,18 @@ class MainGUIObj:
         #Check for desired gain.
         if 'gain' in data:
             gain=data['gain']
-            if isinstance(gain, str):
+            if isinstance(gain, np.ndarray) and gain.size == 1: #Since "and" in python is short circuit, this should not throw an error if gain is not an ndarray.
                 if gain == 'high':
                     MRexcite_Control.MRexcite_System.RFprepModule.set_gain_high()
-                else:
+                elif gain=='low':
                     MRexcite_Control.MRexcite_System.RFprepModule.set_gain_low()
-            elif isinstance(gain,float) or isinstance(gain, int):
-                MRexcite_Control.MRexcite_System.RFprepModule.set_gain(gain)
+                else:
+                    try:
+                        gain=int(gain) #This is only reached if gain is size 1. We can therefore ignore the warning.
+                        MRexcite_Control.MRexcite_System.RFprepModule.set_gain(gain)
+                    except:
+                        print('Error in "gain". Wrong format. Reverting to Hybrid shimming.')
+                        MRexcite_Control.MRexcite_System.RFprepModule.set_gain_low()
             else:
                 print('Error in "gain". Wrong format. Reverting to Hybrid shimming.')
                 MRexcite_Control.MRexcite_System.RFprepModule.set_gain_low()
@@ -329,9 +340,13 @@ class MainGUIObj:
 
         if 'trigger' in data: #Check for Trigger settings. If no trigger settings, revert to feedthrough.
             Trigger = data['trigger']
-            MRexcite_Control.MRexcite_System.TriggerModule.set_clock(Trigger[0])
-            MRexcite_Control.MRexcite_System.TriggerModule.clock_counter = Trigger[1]
-            MRexcite_Control.MRexcite_System.TriggerModule.set_Generate_Sampling()
+            Trigger = Trigger.squeeze() #Squeeze to get the right number of dimensions.
+            if Trigger.size==2:
+                MRexcite_Control.MRexcite_System.TriggerModule.set_clock(Trigger[0])
+                MRexcite_Control.MRexcite_System.TriggerModule.clock_counter = Trigger[1]
+                MRexcite_Control.MRexcite_System.TriggerModule.set_Generate_Sampling()
+            else:
+                print('Wrong number of entries in "trigger". Reverting to OSC feedthrough.')
         else:
             MRexcite_Control.MRexcite_System.TriggerModule.set_OSC_feedthrough()
         
