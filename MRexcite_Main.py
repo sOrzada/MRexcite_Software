@@ -362,10 +362,20 @@ class MainGUIObj:
         self.update_status()
 
     def setCPplus(self): #Applies the CP+ mode for the Body coil.
-        pass
+        try:
+            fname = open(os.path.dirname(__file__) + '/CP_plus.mat')
+        except:
+            print('Error. Could not open CP-plus definition.')
+            return
+        self.loadShim(fname=fname)
 
     def setTIAMO(self): #Loads a simple predefined TIAMO shim set.
-        pass
+        try:
+            fname = open(os.path.dirname(__file__) + '/Simple_TIAMO.mat')
+        except:
+            print('Error. Could not open CP-plus definition.')
+            return
+        self.loadShim(fname=fname)
 
     def PulseInfo(self): #Provides Information on loaded pulse.
         pass

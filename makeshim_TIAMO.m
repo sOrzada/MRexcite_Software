@@ -1,20 +1,22 @@
-function makeshim_CPplus
+function makeshim_TIAMO
 Nch=32;
-Nsamples = 1;
+Nsamples = 2;
 frequency = 1e6;
 trigger_count = 10;
-filename = 'CP_plus.mat';
+filename = 'Simple_TIAMO.mat';
 
 % Make shim vector:
 shim=zeros(Nch,3,Nsamples);
 if Nsamples>1
-    shim(:,1,:)=1; %Amplitude either in V (for high gain) or 0 to 1 for low gain.
-    shim(:,2,:)=90; %Phase in degree.
-    shim(:,3,:)=0; %Amplifier mode (0: Low power, 1: high power).
+    for a=1:Nsamples
+        shim(:,1,a)=1; %Amplitude either in V (for high gain) or 0 to 1 for low gain.
+        shim(:,2,a)=CP_shim32*a; %Phase in degree.
+        shim(:,3,a)=1; %Amplifier mode (0: Low power, 1: high power).
+    end
 else
     shim(:,1)=1;
     shim(:,2)=CP_shim32;
-    shim(:,3)=1;
+    shim(:,3)=0;
 end
 
 % Set gain. (Use 'high', 'low', or integer between -31 and 22)
