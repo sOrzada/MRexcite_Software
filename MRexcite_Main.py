@@ -16,6 +16,7 @@ from tkinter.messagebox import askyesno
 import re
 import MRexcite_Calibration
 import pickle
+import math
 from PIL import Image, ImageTk
 from threading import Thread
 from random import randint
@@ -211,7 +212,7 @@ class MainGUIObj:
         else:
             self.ButtonOSCSelect.config(image=self.Image_Button_Toggle_Left)
 
-        if MRexcite_Control.MRexcite_System.TriggerModule.gen_select==0:
+        if MRexcite_Control.MRexcite_System.TriggerModule.gen_select==1:
             status_text = status_text + 'Single Trigger Mode.\n'
         else:
             sampling_in_kHz=10e6 / MRexcite_Control.MRexcite_System.TriggerModule.clock_divider / 1000
@@ -554,7 +555,7 @@ class GeneralSettingsObj:
         LabelFrame_Trigger = LabelFrame(self.WindowMain,text='TriggerModule',width=200,height=120)
         LabelFrame_Trigger.place(x=xpos-20,y=ypos-35,anchor=NW)
 
-        self.triggerMode.set(MRexcite_Control.MRexcite_System.TriggerModule.gen_select)
+        self.triggerMode.set(abs(MRexcite_Control.MRexcite_System.TriggerModule.gen_select-1))
         self.clockDivider.set(MRexcite_Control.MRexcite_System.TriggerModule.clock_divider)
         self.triggerCount.set(MRexcite_Control.MRexcite_System.TriggerModule.clock_counter)
         
@@ -633,7 +634,7 @@ class GeneralSettingsObj:
         
         MRexcite_Control.MRexcite_System.RFprepModule.set_gain(self.Gain.get())
 
-        MRexcite_Control.MRexcite_System.TriggerModule.gen_select=self.triggerMode.get()
+        MRexcite_Control.MRexcite_System.TriggerModule.gen_select=abs(self.triggerMode.get()-1)
         MRexcite_Control.MRexcite_System.TriggerModule.clock_counter=self.triggerCount.get()
         MRexcite_Control.MRexcite_System.TriggerModule.clock_divider=self.clockDivider.get()
 

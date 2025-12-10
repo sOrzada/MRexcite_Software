@@ -510,7 +510,7 @@ class EnableObj: #Contains all data and methods for the Enable Board. (Enable Am
         self.Amps2=1
     def disable_Amps2(self):
         '''Disables the Amplifiers in the second RF Rack. (Switches the power distribution off)'''
-        self.Amps1=0
+        self.Amps2=0
     def enable_All(self):
         '''Enables all Amplifiers. (Switches the Power Distributions on)'''
         self.Amps1=1
@@ -522,7 +522,7 @@ class EnableObj: #Contains all data and methods for the Enable Board. (Enable Am
     def return_byte_stream(self):
         '''Returns a byte stream that can be used to programm the current state into the hardware.'''
         CB=ControlByteObj()
-        data=self.Amps1+2*self.Amps2+4*self.RF_Switch
+        data=self.Amps2+2*self.Amps1+4*self.RF_Switch
         byte_stream=[CB.prog,0,0,0]
         byte_stream_add = [CB.prog,self.address,0,data,
                            CB.prog + CB.we, self.address,0,data,
@@ -612,7 +612,7 @@ class TriggerObj: #Contains all data and methods for the Trigger Board. (Samplin
     '''This Object represents the hardware of the Trigger Board.\n
     The Trigger Board detects OSCbits from the MRI system and either transmits them to the modulators, or starts a gated oscillator to produce a user defined number of trigger pulses at a user defined sampling rate.'''
     osc_select=0 #Selects one of two OSCbit inputs
-    gen_select=0 #Selects whether OSCbit is fed through (0), or the Trigger generator is used (1).
+    gen_select=1 #Selects whether OSCbit is fed through (1), or the Trigger generator is used (0).
     clock_divider=10 #Clock devider. The original clock (200MHz) is reduced to 10MHz and then devided by this number to provide the sampling frequency for the RF pulses in the modulators.
     clock_counter=100 #Number of clock ticks played out in a row after an OSCbit was detected.
     sampling_rate=10e6/clock_divider
@@ -636,11 +636,11 @@ class TriggerObj: #Contains all data and methods for the Trigger Board. (Samplin
 
     def set_OSC_feedthrough(self):
         '''Sets the Trigger Board to "Feedthrough" mode, where the incoming OSCbit triggers a new modulator state.'''
-        self.gen_select=0
+        self.gen_select=1
 
     def set_Generate_Sampling(self):
         '''Sets the Trigger Board to "Generate Triggers" mode, where the incomming OSCbit starts a user defined stream of trigger pulses for the Modulators.'''
-        self.gen_select=1
+        self.gen_select=0
 
     def set_clock_1MHz(self):
         '''Sets the clock to 1MHz sampling rate'''
@@ -666,13 +666,20 @@ class TriggerObj: #Contains all data and methods for the Trigger Board. (Samplin
 
     def return_byte_stream(self):
         CB=ControlByteObj()
+        
+        #Rewrite clock-counter to two bytes
+        if self.clock_counter>pow(2,16)-1: #make sure counter is not more than 16bit
+            self.clock_counter=pow(2,16)-1
+        data1=self.clock_counter%256
+        data2=math.floor(self.clock_counter/256)
+
         byte_stream = [CB.prog,0,0,0,
                        CB.prog+CB.chip0,self.address,self.osc_select+2*self.gen_select,self.clock_divider,
                        CB.prog+CB.chip0+CB.we,self.address,self.osc_select+2*self.gen_select,self.clock_divider, #Write clock divider and OSC/GEN select
                        CB.prog+CB.chip0,self.address,self.osc_select+2*self.gen_select,self.clock_divider,
                        CB.prog+CB.chip1,self.address,0,self.clock_counter,
                        CB.prog+CB.chip1+CB.we,self.address,0,self.clock_counter, #Write clock counter
-                       CB.prog+CB.chip1,self.address,0,self.clock_counter,
+                       CB.prog+CB.chip1,self.address,data2,data1,
                        CB.prog,0,0,0]
         return bytes(byte_stream)
 
