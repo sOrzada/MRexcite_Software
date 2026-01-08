@@ -49,12 +49,7 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
         add = kwargs.get('add',0) #Can enable system and optionally light up one address.
         self.Unblank_Status=1
         self.SPI.send_bitstream(bytes([128,add,0,0]))
-    def setup_system(self):
-        self.TimingControl.trigger_off() #Trigger needs to be switched off before programming Modulators, because trigger is used to select adress.
-        bytestream = self.TimingControl.return_byte_stream()
-        self.TimingControl.trigger_on() #Trigger can be switched on again after programming Modulators.
-        bytestream = bytestream + self.SignalSource.return_byte_stream() + self.Modulator.return_byte_stream() + self.TimingControl.return_byte_stream() + bytes([0,0,0,0])
-        self.SPI.send_bitstream(bytestream)    
+
     def disable_system(self):
         self.Unblank_Status=0
         try:
@@ -115,15 +110,20 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
         except:
             print('Error: Could not transmit via SPI!')
             return 0
+        
     
     def SetAll(self):
         '''This function sends applies all System states to the Hardware, including modulators.'''
+        #print('Assemble bytes...')
         bytestream_trigger = self.TriggerModule.return_byte_stream()
         bytestream_optical = self.OpticalModule.return_byte_stream()
         bytestream_RFprep = self.RFprepModule.return_byte_stream()
         bytestream_enable = self.EnableModule.return_byte_stream()
+        #print('Assemble bytes for modulators...')
         bytestream_modulators = self.Modulator.return_byte_stream()
+        #print('Append all...')
         bytestream=bytestream_trigger+bytestream_optical+bytestream_RFprep+bytestream_enable+bytestream_modulators
+        #print('start transmitting...')
         try:
             self.SPI.send_bitstream(bytestream)
             return 1
@@ -166,11 +166,16 @@ class USB2SPIObj: #Contains all data and methods for USB2SPI hardware. (Communic
         
         #Configure Device for SPI (We allow different clock speeds according to config file)
         if config['SPI_config']['clock_divider'] == '8':
-            print('SPI Clock devider: 8')
+            print('SPI Clock divider: 8')
             self.devA.spiMaster_Init(Mode.SINGLE, Clock.DIV_8, Cpha.CLK_LEADING, Cpol.IDLE_LOW, SlaveSelect.SS0)
         elif config['SPI_config']['clock_divider'] == '4':
+            print('SPI Clock divider: 4')
+            self.devA.spiMaster_Init(Mode.SINGLE, Clock.DIV_4, Cpha.CLK_LEADING, Cpol.IDLE_LOW, SlaveSelect.SS0)
+        elif config['SPI_config']['clock_divider'] == '2':
+            print('SPI Clock divider: 2')
             self.devA.spiMaster_Init(Mode.SINGLE, Clock.DIV_4, Cpha.CLK_LEADING, Cpol.IDLE_LOW, SlaveSelect.SS0)
         else:
+            print('SPI Clock divider: reverting to 16')
             self.devA.spiMaster_Init(Mode.SINGLE, Clock.DIV_16, Cpha.CLK_LEADING, Cpol.IDLE_LOW, SlaveSelect.SS0)
     
     def send_bitstream(self, bitstream): #Write bit stream. Input variable is actually a row of 4*N bytes.
@@ -338,7 +343,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
         This includes normalizing according to the calibration. Be aware that the pulse amplitude is normalized depending on the state of the RF preparation (Full or Hybrid modulation). Make sure that the state is set before applying amplitudes and phases!'''
         self.prepare_1D_Cal() #Prepare Pchip Objects. This is to make sure that these are current.
         self.prepare_mod_cal() #Prepare inverted matrices for modulator calibration.
-
+        #print('Initialize...')
         #First we need to check, whether amplitudes, phases and states contain the correct number of channels. (This is for the future when we might introduce additional, optional channels e.g. for X-nuclei)
         len_amp = len(amplitudes_in)
         len_diff = self.number_of_channels - len_amp
@@ -354,7 +359,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
                     phases_in.append(0)
                     state_in.append(0)
 
-
+        #print('find max amplitude...')
         #Here we change the amplitudes of the pulse. The hybrid modulation expects pulses with an amplitude between 0 and 1, while the full modulation expects voltages.
         #If the modulation is hybrid and the maximum amplitude is >0, we normalize the pulse ampltiudes.
         if type(amplitudes_in[1]) is list:
@@ -371,11 +376,12 @@ class ModulatorObj: #Contains all data and methods for Modulators
             amplitudes_in=[i/maxAmp for i in amplitudes_in]
 
 
-
+        #print('Initialize IQ-Lists...')
         self.amplitudes=amplitudes_in
         self.phases=phases_in
         self.I_values=[0]*self.number_of_channels
         self.Q_values=[0]*self.number_of_channels
+        #print('Calc_IQ...')
         for a in range(self.number_of_channels):
             if type(amplitudes_in[a]) is list: #Need to differentiate between cases with 1 and more elements.
                 self.counter_max[a]=len(amplitudes_in[a])
@@ -393,6 +399,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
                 self.I_values[a]=int(np.real(cIQ))
                 self.Q_values[a]=int(np.imag(cIQ))
                 self.Amp_state[a]=state_in[a]
+        #print('Finished calculation')
 
     def calcIQ(self,amp,ph,channel,mode): #Calculate digital values including calibration
         '''This function translates a value for amplitude and phase into a complex I/Q value including normalization according to the calibrations.\n
@@ -417,7 +424,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
             IQ=(pow(2,13)-1 +self.IQoffset[channel][0])+ 1j*(pow(2,13)-1 +self.IQoffset[channel][1]) + amp_digital*np.exp(1j*np.pi/180*ph) #Only includes offset correction.
         else: #Corrections for Hybrid modulation
             
-            cplx = amp*np.exp(1j*np.pi/180*ph) # Complex value of input
+            cplx = amp*np.exp(1j*np.pi/180*ph) * (pow(2,13)-5) # Complex value of input
             b = np.array([np.real(cplx),np.imag(cplx)]) #Vector with desired ideal I and Q value
             b_corrected = self.CalModInv[channel,mode,:,:].dot(b) #This should now be corrected.
             
@@ -451,11 +458,13 @@ class ModulatorObj: #Contains all data and methods for Modulators
                                CB.prog + CB.we + CB.chip0, a + self.start_address, data2, data1,
                                CB.prog + CB.chip0, a + self.start_address, data2, data1]
             byte_stream = byte_stream + byte_stream_add
+            byte_stream_c=[] #This is used to reduce the number of times byte_stream is appended
             for c in range(2): #Run through all SRAMs
                 byte_stream_add = [CB.prog, a + self.start_address, 0, 0,
                                    CB.prog + CB.reset, a + self.start_address, 0, 0, #Reset counters before starting to fill SRAM.
                                    CB.prog, a + self.start_address, 0, 0]
-                byte_stream = byte_stream + byte_stream_add
+                byte_stream_c = byte_stream_c + byte_stream_add
+                byte_stream_b = [] #This is used to reduce the number of times byte_stream_c is appended
                 for b in range(self.counter_max[a]): #Run through all samples
                     if c==0: #First SRAM Chip
                         if self.counter_max[a]>1:
@@ -476,8 +485,9 @@ class ModulatorObj: #Contains all data and methods for Modulators
                                        CB.prog + CB.chip(c+1) + CB.we, a + self.start_address, data2, data1,
                                        CB.prog + CB.chip(c+1), a + self.start_address, data2, data1,
                                        CB.prog + CB.chip(c+1) + CB.clock, a + self.start_address, data2, data1]
-                    byte_stream = byte_stream + byte_stream_add
-
+                    byte_stream_b = byte_stream_b + byte_stream_add
+                byte_stream_c = byte_stream_c + byte_stream_b
+            byte_stream = byte_stream + byte_stream_c
         byte_stream = byte_stream + [CB.prog + CB.reset, 0, 0, 0] + [CB.prog, 0, 0, 0]
         data=bytes(byte_stream)    
         return data

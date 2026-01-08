@@ -1,16 +1,18 @@
-function makeshim_CPplus
+function makeshim
 Nch=32;
-Nsamples = 1;
+Nsamples = 10;
 frequency = 1e6;
 trigger_count = 10;
-filename = 'CP_plus.mat';
+filename = 'test_amplitudes_10.mat';
 
 % Make shim vector:
 shim=zeros(Nch,3,Nsamples);
 if Nsamples>1
-    shim(:,1,:)=1; %Amplitude either in V (for high gain) or 0 to 1 for low gain.
-    shim(:,2,:)=90; %Phase in degree.
-    shim(:,3,:)=0; %Amplifier mode (0: Low power, 1: high power).
+    for a=1:Nsamples
+        shim(:,1,a)=1/(2^(a-1)); %Amplitude either in V (for high gain) or 0 to 1 for low gain.
+        shim(:,2,a)=0; %Phase in degree.
+        shim(:,3,a)=1; %Amplifier mode (0: Low power, 1: high power).
+    end
 else
     shim(:,1)=1;
     shim(:,2)=CP_shim32;
@@ -21,7 +23,7 @@ end
 gain='low';
 
 % Set Oscbit (0 or 1)
-OSCbit=0;
+OSCbit=1;
 
 % Set trigger. Frequency in Hz and number of triggers. Set to [] for
 % feedthrough.

@@ -361,6 +361,7 @@ class MainGUIObj:
         
         #Update Status.
         self.update_status()
+        MRexcite_Control.MRexcite_System.SetAll()
 
     def setCPplus(self): #Applies the CP+ mode for the Body coil.
         try:
