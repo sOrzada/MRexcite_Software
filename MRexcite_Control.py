@@ -174,9 +174,14 @@ class USB2SPIObj: #Contains all data and methods for USB2SPI hardware. (Communic
         elif config['SPI_config']['clock_divider'] == '2':
             print('SPI Clock divider: 2')
             self.devA.spiMaster_Init(Mode.SINGLE, Clock.DIV_4, Cpha.CLK_LEADING, Cpol.IDLE_LOW, SlaveSelect.SS0)
+        elif config['SPI_config']['clock_divider'] == '1':
+            print('SPI Clock divider: None')
+            self.devA.spiMaster_Init(Mode.SINGLE, Clock.NONE, Cpha.CLK_LEADING, Cpol.IDLE_LOW, SlaveSelect.SS0)
         else:
             print('SPI Clock divider: reverting to 16')
             self.devA.spiMaster_Init(Mode.SINGLE, Clock.DIV_16, Cpha.CLK_LEADING, Cpol.IDLE_LOW, SlaveSelect.SS0)
+        self.max_size=self.devA.getMaxTransferSize() #Maximum number of bytes that can be transferred as a block.
+        
     
     def send_bitstream(self, bitstream): #Write bit stream. Input variable is actually a row of 4*N bytes.
         '''This method sends a bitstream via the SPI interface.\n
@@ -187,8 +192,9 @@ class USB2SPIObj: #Contains all data and methods for USB2SPI hardware. (Communic
             Data byte 2 (with most significant of 16 bits)\n
             Data byte 1 (with least significant of 16 bits)\n'''
         #In the following, the data in bitstream is sliced. This is necessary, as to long streams are cut by the FT4222's driver without notice.
-        max_num_bytes=400
+        max_num_bytes=round(self.max_size/1.1) #Reduced block size, just to be on the safe side.
         stream_length=len(bitstream)
+        #print(stream_length)
         number_of_steps=int(np.ceil(stream_length/max_num_bytes))
         for a in range(number_of_steps):
             if (a+1)*max_num_bytes<stream_length:
@@ -197,7 +203,6 @@ class USB2SPIObj: #Contains all data and methods for USB2SPI hardware. (Communic
                 bitstream_send=bitstream[a*max_num_bytes:stream_length]
             self.devA.spiMaster_SingleWrite(bitstream_send, True)
         self.lastWord = bitstream[4:] # Save the last 4 bytes so they can be resend
-
 
 class ModulatorObj: #Contains all data and methods for Modulators
     '''Contains all data and methods for Modulator board. This also includes calibration data.'''
@@ -265,7 +270,6 @@ class ModulatorObj: #Contains all data and methods for Modulators
         except:
             print(f'Could not open 1D Linearity calibration file: {self.f_name_Cal1D}. Falling back to generic calibration data.')
     
-    
     def read_IQ_offset(self):
         '''Reads the IQ offset from calibration file which is specified in the config file.'''
         with open(self.f_name_CalZP,'r') as f:
@@ -301,7 +305,6 @@ class ModulatorObj: #Contains all data and methods for Modulators
             writer = csv.writer(csvfile, delimiter=',')
             writer.writerows(self.IQoffset_hybrid)
 
-
     def write_1D_Cal(self):
         '''Saves the current 1D calibration data to file specified in config file.'''
         np.save(self.f_name_Cal1D,self.Cal1D)
@@ -329,6 +332,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
                 xi=self.Cal1D[channel,amp_mode,:,0]
                 yi=self.Cal1D[channel,amp_mode,:,2]
                 self.pchip_objects_phase[channel].append(scipy.interpolate.PchipInterpolator(xi,yi))
+    
     def prepare_mod_cal(self): #TODO: Check whether order in matrix is correct!
         '''This function prepares the matrix inversions for the Modulator calibrations.'''
         self.CalModInv = self.CalMod #Prepare array for inverted matrices
@@ -337,7 +341,6 @@ class ModulatorObj: #Contains all data and methods for Modulators
                 matrix_temp = self.CalMod[ch,mode,:,:]
                 self.CalModInv[ch,mode,:,:] = np.linalg.inv(matrix_temp)
         
-
     def set_amplitudes_phases_state(self,amplitudes_in,phases_in,state_in):
         '''Sets the digital I and Q values to achieve the amplitudes and phases specified in the input variables.\n
         This includes normalizing according to the calibration. Be aware that the pulse amplitude is normalized depending on the state of the RF preparation (Full or Hybrid modulation). Make sure that the state is set before applying amplitudes and phases!'''
@@ -444,8 +447,6 @@ class ModulatorObj: #Contains all data and methods for Modulators
             self.Q_values=Q_in
         
         self.Amp_state=Amp_state_in
-        
-        
 
     def return_byte_stream(self):
         '''Returns a byte stream to be transmitted via SPI. This byte stream is suited to programm the modulators (hardware) to the state given in this object'''
@@ -465,6 +466,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
                                    CB.prog, a + self.start_address, 0, 0]
                 byte_stream_c = byte_stream_c + byte_stream_add
                 byte_stream_b = [] #This is used to reduce the number of times byte_stream_c is appended
+                #byte_stream_b = [0]*(self.counter_max[a]*16)
                 for b in range(self.counter_max[a]): #Run through all samples
                     if c==0: #First SRAM Chip
                         if self.counter_max[a]>1:
@@ -486,6 +488,8 @@ class ModulatorObj: #Contains all data and methods for Modulators
                                        CB.prog + CB.chip(c+1), a + self.start_address, data2, data1,
                                        CB.prog + CB.chip(c+1) + CB.clock, a + self.start_address, data2, data1]
                     byte_stream_b = byte_stream_b + byte_stream_add
+                    #byte_stream_b[(b-1)*16:(b)*16+1]=byte_stream_add
+
                 byte_stream_c = byte_stream_c + byte_stream_b
             byte_stream = byte_stream + byte_stream_c
         byte_stream = byte_stream + [CB.prog + CB.reset, 0, 0, 0] + [CB.prog, 0, 0, 0]

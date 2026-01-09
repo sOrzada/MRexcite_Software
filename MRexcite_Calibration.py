@@ -308,7 +308,6 @@ class CalibrateLinearity1DObj:
             self.Cal1D[self.active_channel-1,self.Amp_Mode.get(),0,2]=self.Cal1D[self.active_channel-1,self.Amp_Mode.get(),1,2] #We need to make sure that there is no change in angle between 0V and the smallest measured voltage.
         self.update()
 
-
     def dig_value_select(self,a):
         '''Selects a digital value from a pre-defined set. These are the digital values added on top of the zero point calibration.'''
         self.dig_index=self.dig_index+a
@@ -477,8 +476,6 @@ class ModulatorCalibrationObj:
         self.CalMod = MRexcite_Control.MRexcite_System.Modulator.CalMod      #Load 1D Calibration from Modulators.
         self.test_value_digital = 1000 #Digital value used for test.
 
-        
-
     def openGUI(self):
         #Preparations for safety:
         self.active_channel = 1 #Always start with first channel when user activates GUI.
@@ -510,7 +507,6 @@ class ModulatorCalibrationObj:
         MRexcite_Control.MRexcite_System.RFprepModule.set_gain_low() #This is the calibration for the low gain state, so set it.
 
         self.update()
-        
 
     def channelSelectInit(self, x_center:int, y_center:int): #Initialize Buttons and Label for Channel selection
         '''Initializes the channel selection interface at the coordinates specified by x_center and y_center.'''
@@ -622,7 +618,6 @@ class ModulatorCalibrationObj:
         # Redraw the canvas to reflect the updates
         self.FigureModIQ.canvas.draw()
 
-
     def update(self):
         '''Central function to update entries, figures and system settings after changes.'''
         #Set Modulators ():
@@ -651,8 +646,6 @@ class ModulatorCalibrationObj:
         #Update Figure:
         self.update_figure()
 
-
-
     def set_modulators(self):
         '''Set the modulators to the correct state and send data to hardware.'''
         I_values = self.I_values # Make a local copy which can then be changed.
@@ -675,6 +668,7 @@ class ModulatorCalibrationObj:
         MRexcite_Control.MRexcite_System.Modulator.Amp_state = [mode]*self.number_of_channels #Set the correct amplifier mode
         MRexcite_Control.MRexcite_System.Modulator.I_values = I_values 
         MRexcite_Control.MRexcite_System.Modulator.Q_values = Q_values
+        MRexcite_Control.MRexcite_System.Modulator.counter_max = 1 #We only apply a single value to I and Q, therefore, we have to set this here.
 
         #Add the test value to the correct variable in the MRexcite System
         ch=self.active_channel-1
@@ -685,7 +679,6 @@ class ModulatorCalibrationObj:
 
         #Apply all data to hardware.
         MRexcite_Control.MRexcite_System.SetAll()
-
 
     def get_values(self):
         '''Returns a dictionary where 'Amp' is the Amplitude in dB and 'Phase' is the phase in degree, taken from the calibration data of the current point.'''

@@ -36,10 +36,13 @@ class MainGUIObj:
         
         self.status_text_box = scrolledtext.ScrolledText(self.MainWindow, width = 55, height =30)
         self.status_text_box.place(x=700,y=50)
-        self.SARDisplay=SARSupervisionDisplyObj(self.MainWindow)
-        self.SARDisplay.place_SAR_info(400,150)
-        self.SARthread=Thread(target=self.SARDisplay.getSAR,args=[],daemon=TRUE)
-        self.SARthread.start()
+        
+        #The following could be used to display SAR. There is no connection to the SAR supervision System yet.
+        #self.SARDisplay=SARSupervisionDisplyObj(self.MainWindow)
+        #self.SARDisplay.place_SAR_info(400,150)
+        #self.SARthread=Thread(target=self.SARDisplay.getSAR,args=[],daemon=TRUE)
+        #self.SARthread.start()
+
         self.AddressTestGUI=AddressTestObj()
         self.AdvancedUser=AdvancedUserObj()
         self.GeneralSettingsGUI=GeneralSettingsObj()
@@ -128,7 +131,6 @@ class MainGUIObj:
         self.displayShim=StringVar()
         self.LabelShim = Label(self.MainWindow, textvariable=self.displayShim)
         self.LabelShim.place (x=150,y=475, anchor = 'w')
-
     
     def switch_system(self):
         '''This function allows for switching between Siemens and MRexcite'''
@@ -384,18 +386,22 @@ class MainGUIObj:
 
     def TriggerReset(self):
         MRexcite_Control.MRexcite_System.TriggerReset()
+    
     def TriggerSend(self):
         MRexcite_Control.MRexcite_System.TriggerSend()
+    
     def TriggerGoTo(self):
         triggerSelectWindow=TriggerSelectObj()
         triggerSelectWindow.WindowMain.grab_set()
         triggerSelectWindow.WindowMain.wait_window(triggerSelectWindow.WindowMain)
+    
     def AddressTest(self):
         if self.AdvancedUser.check()==TRUE:
             self.AddressTestGUI.openGUI()
             self.AddressTestGUI.WindowAddress.focus()
             self.AddressTestGUI.WindowAddress.grab_set()
             self.AddressTestGUI.WindowAddress.wait_window(self.AddressTestGUI.WindowAddress)
+    
     def settingsGeneral(self): #General settings for the System.
         if self.AdvancedUser.check()==TRUE:
             self.GeneralSettingsGUI.openGUI()
@@ -454,6 +460,7 @@ class MainGUIObj:
         self.MainWindow.destroy()
 
 class SARSupervisionDisplyObj:
+    '''Possible solution for showing SAR overview within the MRexcite control GUI.'''
     def __init__(self,MainWindow):
         self.MainWindow=MainWindow
     
@@ -512,6 +519,7 @@ class GeneralSettingsObj:
     '''Class for Window for general settings.'''
     def __init__(self):
         pass
+    
     def openGUI(self):
         '''Function defines and opens window for GUI.'''
         #Input Window for general settings
@@ -656,8 +664,10 @@ class AdvancedUserObj:
     '''Class for enabling Advanced User'''
     password = 'meduser1' #This is not a real password. It is just a low key way to keep users away from stuff they normally should not use. (Ask Siemens about that *lol*) 
     advancedUseEnabled=FALSE
+    
     def __init__(self):
         pass
+    
     def openGUI(self):
         '''This is the GUI for password entry. Is called by the check() function'''
         #Password Entry for advanced usage
@@ -719,8 +729,6 @@ class AddressTestObj:
         self.addressList[number_of_channels+2]=add_optical_module
         self.addressList[number_of_channels+3]=add_enable_module
         
-        
-
     def openGUI(self):    
         #Input Window for AddressTest
         self.WindowAddress = Toplevel()
@@ -741,6 +749,7 @@ class AddressTestObj:
     def __sendAddress__(self):
         '''Light a specific address LED'''
         MRexcite_Control.MRexcite_System.LightAddress(self.Address_Selected.get())
+    
     def __runAddresses__(self):
         '''Runs through all valid adresses and lights the indicator LEDs'''
         self.Button_RunAddresses["state"]="disabled"
@@ -752,6 +761,7 @@ class AddressTestObj:
             sleep(1)
         self.Button_RunAddresses["state"]="normal"
         self.Button_SendAdress["state"]="normal"
+    
     def closeWindow(self):
         self.WindowAddress.destroy()        
 
