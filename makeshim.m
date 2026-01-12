@@ -1,16 +1,16 @@
 function makeshim
 Nch=32;
-Nsamples = 10;
-frequency = 1e6;
-trigger_count = 10;
-filename = 'test_amplitudes_10.mat';
+Nsamples = 1000;
+frequency = 1e5;
+trigger_count = 1000;
+filename = 'test_amplitudes_1000.mat';
 
 % Make shim vector:
 shim=zeros(Nch,3,Nsamples);
 if Nsamples>1
     for a=1:Nsamples
-        shim(:,1,a)=1/(2^(a-1)); %Amplitude either in V (for high gain) or 0 to 1 for low gain.
-        shim(:,2,a)=0; %Phase in degree.
+        shim(:,1,a)=0.7;%a/1500; %Amplitude either in V (for high gain) or 0 to 1 for low gain.
+        shim(:,2,a)=a/1000*360; %Phase in degree.
         shim(:,3,a)=1; %Amplifier mode (0: Low power, 1: high power).
     end
 else
@@ -29,7 +29,7 @@ OSCbit=1;
 % feedthrough.
 trigger = [frequency,trigger_count];
 
-save(filename,'shim','gain','OSCbit')%,'trigger')
+save(filename,'shim','gain','OSCbit','trigger')
 
 function out=CP_shim32
 phase=[];

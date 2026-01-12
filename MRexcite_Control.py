@@ -114,6 +114,7 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
     
     def SetAll(self):
         '''This function sends applies all System states to the Hardware, including modulators.'''
+        CP=ControlByteObj()
         #print('Assemble bytes...')
         bytestream_trigger = self.TriggerModule.return_byte_stream()
         bytestream_optical = self.OpticalModule.return_byte_stream()
@@ -122,7 +123,7 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
         #print('Assemble bytes for modulators...')
         bytestream_modulators = self.Modulator.return_byte_stream()
         #print('Append all...')
-        bytestream=bytestream_trigger+bytestream_optical+bytestream_RFprep+bytestream_enable+bytestream_modulators
+        bytestream=bytestream_trigger+bytestream_optical+bytestream_RFprep+bytestream_enable+bytestream_modulators + bytes([CP.enable*self.Unblank_Status,0,0,0])
         #print('start transmitting...')
         try:
             self.SPI.send_bitstream(bytestream)
@@ -668,15 +669,15 @@ class TriggerObj: #Contains all data and methods for the Trigger Board. (Samplin
         '''Sets the device to a user defined sampling rate.\n
         Automatically makes sure that the sampling rate is sensible:\n
         It sets the clock divider to the nearest feasible integer.'''
-        self.clock_divider=int(np.round(10e6/freq_in))
+        self.clock_divider=int(np.round(5e6/(freq_in))) #It is 5Mhz instead of 10MHz, because of the flipflop at the output.
         if self.clock_divider>255:
             self.clock_divider = 255
         elif self.clock_divider <1:
             self.clock_divider = 1
 
     def calculate_sampling_rate(self):
-        self.sampling_rate = 10e6/self.clock_divider
-        print('Sampling Rate: ' + str(self.sampling_rate/1000) + ' kHz')
+        self.sampling_rate = 5e6/self.clock_divider
+        #print('Sampling Rate: ' + str(self.sampling_rate/1000) + ' kHz')
 
     def return_byte_stream(self):
         CB=ControlByteObj()
@@ -684,15 +685,15 @@ class TriggerObj: #Contains all data and methods for the Trigger Board. (Samplin
         #Rewrite clock-counter to two bytes
         if self.clock_counter>pow(2,16)-1: #make sure counter is not more than 16bit
             self.clock_counter=pow(2,16)-1
-        data1=self.clock_counter%256
+        data1=int(self.clock_counter%256)
         data2=math.floor(self.clock_counter/256)
 
         byte_stream = [CB.prog,0,0,0,
                        CB.prog+CB.chip0,self.address,self.osc_select+2*self.gen_select,self.clock_divider,
                        CB.prog+CB.chip0+CB.we,self.address,self.osc_select+2*self.gen_select,self.clock_divider, #Write clock divider and OSC/GEN select
                        CB.prog+CB.chip0,self.address,self.osc_select+2*self.gen_select,self.clock_divider,
-                       CB.prog+CB.chip1,self.address,0,self.clock_counter,
-                       CB.prog+CB.chip1+CB.we,self.address,0,self.clock_counter, #Write clock counter
+                       CB.prog+CB.chip1,self.address,data2,data1,
+                       CB.prog+CB.chip1+CB.we,self.address,data2,data1, #Write clock counter
                        CB.prog+CB.chip1,self.address,data2,data1,
                        CB.prog,0,0,0]
         return bytes(byte_stream)

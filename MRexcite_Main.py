@@ -36,7 +36,7 @@ class MainGUIObj:
         
         self.status_text_box = scrolledtext.ScrolledText(self.MainWindow, width = 55, height =30)
         self.status_text_box.place(x=700,y=50)
-        
+
         #The following could be used to display SAR. There is no connection to the SAR supervision System yet.
         #self.SARDisplay=SARSupervisionDisplyObj(self.MainWindow)
         #self.SARDisplay.place_SAR_info(400,150)
@@ -217,7 +217,8 @@ class MainGUIObj:
         if MRexcite_Control.MRexcite_System.TriggerModule.gen_select==1:
             status_text = status_text + 'Single Trigger Mode.\n'
         else:
-            sampling_in_kHz=10e6 / MRexcite_Control.MRexcite_System.TriggerModule.clock_divider / 1000
+            MRexcite_Control.MRexcite_System.TriggerModule.calculate_sampling_rate()
+            sampling_in_kHz=MRexcite_Control.MRexcite_System.TriggerModule.sampling_rate/1000
             number_of_samples = MRexcite_Control.MRexcite_System.TriggerModule.clock_counter
             # Calculate the length of the pulse in milliseconds.
             # Formula: number_of_samples * (1 / sampling_rate_in_kHz)
