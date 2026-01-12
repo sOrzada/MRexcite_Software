@@ -99,11 +99,12 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
             print('Error: Could not transmit via SPI!')
     def SetSystemState(self):
         '''This function sends applies all System states to the Hardware. NO Modulators!'''
+        CP=ControlByteObj()
         bytestream_trigger = self.TriggerModule.return_byte_stream()
         bytestream_optical = self.OpticalModule.return_byte_stream()
         bytestream_RFprep = self.RFprepModule.return_byte_stream()
         bytestream_enable = self.EnableModule.return_byte_stream()
-        bytestream=bytestream_trigger+bytestream_optical+bytestream_RFprep+bytestream_enable
+        bytestream=bytestream_trigger+bytestream_optical+bytestream_RFprep+bytestream_enable+bytes([CP.enable*self.Unblank_Status,0,0,0]) #The last part makes sure the system is not in "program state"
         try:
             self.SPI.send_bitstream(bytestream)
             return 1
@@ -123,7 +124,7 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
         #print('Assemble bytes for modulators...')
         bytestream_modulators = self.Modulator.return_byte_stream()
         #print('Append all...')
-        bytestream=bytestream_trigger+bytestream_optical+bytestream_RFprep+bytestream_enable+bytestream_modulators + bytes([CP.enable*self.Unblank_Status,0,0,0])
+        bytestream=bytestream_trigger+bytestream_optical+bytestream_RFprep+bytestream_enable+bytestream_modulators + bytes([CP.enable*self.Unblank_Status,0,0,0]) #The last part is to make sure that the modulators are not in programm state anymore.
         #print('start transmitting...')
         try:
             self.SPI.send_bitstream(bytestream)
