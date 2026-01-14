@@ -98,7 +98,7 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
         except:
             print('Error: Could not transmit via SPI!')
     def SetSystemState(self):
-        '''This function sends applies all System states to the Hardware. NO Modulators!'''
+        '''This function applies all System states to the Hardware. NO Modulators!'''
         CP=ControlByteObj()
         bytestream_trigger = self.TriggerModule.return_byte_stream()
         bytestream_optical = self.OpticalModule.return_byte_stream()
@@ -114,7 +114,7 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
         
     
     def SetAll(self):
-        '''This function sends applies all System states to the Hardware, including modulators.'''
+        '''This function applies all System states to the Hardware, including modulators.'''
         CP=ControlByteObj()
         #print('Assemble bytes...')
         bytestream_trigger = self.TriggerModule.return_byte_stream()
@@ -166,6 +166,7 @@ class USB2SPIObj: #Contains all data and methods for USB2SPI hardware. (Communic
         #Open device with default Name
         self.devA = ft4222.openByDescription('FT4222 A')
         
+  
         #Configure Device for SPI (We allow different clock speeds according to config file)
         if config['SPI_config']['clock_divider'] == '8':
             print('SPI Clock divider: 8')
@@ -182,8 +183,8 @@ class USB2SPIObj: #Contains all data and methods for USB2SPI hardware. (Communic
         else:
             print('SPI Clock divider: reverting to 16')
             self.devA.spiMaster_Init(Mode.SINGLE, Clock.DIV_16, Cpha.CLK_LEADING, Cpol.IDLE_LOW, SlaveSelect.SS0)
-        self.max_size=self.devA.getMaxTransferSize() #Maximum number of bytes that can be transferred as a block.
         
+        self.max_size=self.devA.getMaxTransferSize() #Maximum number of bytes that can be transferred as a block.
     
     def send_bitstream(self, bitstream): #Write bit stream. Input variable is actually a row of 4*N bytes.
         '''This method sends a bitstream via the SPI interface.\n

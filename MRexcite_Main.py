@@ -6,17 +6,13 @@ import scipy
 COLOR_SAR_EXCEEDED = '#FF0000'
 COLOR_SAR_OK = '#00FF00'
 import numpy as np
-import configparser
 from time import sleep
 import os
 from tkinter import *
 from tkinter import scrolledtext
 from tkinter import filedialog
 from tkinter.messagebox import askyesno
-import re
 import MRexcite_Calibration
-import pickle
-import math
 from PIL import Image, ImageTk
 from threading import Thread
 from random import randint

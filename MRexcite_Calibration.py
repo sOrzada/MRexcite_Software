@@ -668,7 +668,7 @@ class ModulatorCalibrationObj:
         MRexcite_Control.MRexcite_System.Modulator.Amp_state = [mode]*self.number_of_channels #Set the correct amplifier mode
         MRexcite_Control.MRexcite_System.Modulator.I_values = I_values 
         MRexcite_Control.MRexcite_System.Modulator.Q_values = Q_values
-        MRexcite_Control.MRexcite_System.Modulator.counter_max = 1 #We only apply a single value to I and Q, therefore, we have to set this here.
+        MRexcite_Control.MRexcite_System.Modulator.counter_max = [1]*MRexcite_Control.MRexcite_System.Modulator.number_of_channels #We only apply a single value to I and Q, therefore, we have to set this here.
 
         #Add the test value to the correct variable in the MRexcite System
         ch=self.active_channel-1
