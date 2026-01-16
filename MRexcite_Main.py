@@ -16,6 +16,7 @@ import MRexcite_Calibration
 from PIL import Image, ImageTk
 from threading import Thread
 from random import randint
+import webbrowser
 
 ### Define GUI ###
 class MainGUIObj:
@@ -436,10 +437,13 @@ class MainGUIObj:
             pass
 
     def callHelp(self):
-        pass
+        url = "https://github.com/sOrzada/MRexcite_Software/wiki"
+        webbrowser.open(url, new=0, autoraise=True)
 
     def showInfo(self):
-        pass
+        infoWindow=InfoWindowObj()
+        infoWindow.WindowMain.grab_set()
+        infoWindow.WindowMain.wait_window(infoWindow.WindowMain)
 
     def enableAdvancedUser(self):
         self.AdvancedUser.openGUI()
@@ -797,6 +801,34 @@ class TriggerSelectObj:
         MRexcite_Control.MRexcite_System.TriggerGoTo(triggerInt)
         self.WindowMain.destroy()
 
+class InfoWindowObj:
+    '''Class for the info window'''
+    def __init__(self):
+        self.WindowMain = Toplevel()
+        self.WindowMain.title('Info')
+        self.WindowMain.config(width=250, height=220)
+        self.WindowMain.resizable(False,False)
+        self.WindowMain.iconbitmap(os.path.dirname(__file__) + r'\images\MRexcite_logo.ico')
+        self.WindowMain.protocol('WM_DELETE_WINDOW', self.closeWindow)
+        InfoLabel = Label(self.WindowMain, text='MRexcite 3 Software by DKFZ. \nIn case of problems: Good Luck! \n(Or just ask Stephan)')
+        InfoLabel.place(x=120,y=150,anchor=CENTER)
+        # Add dkfz logo from images subfolder
+        try:
+            #from PIL import Image, ImageTk
+            img_path = os.path.join(os.path.dirname(__file__), 'images', 'dkfz-logo2.png')
+            if os.path.exists(img_path):
+                ph = Image.open(img_path)
+                ph_resize = ph.resize((200, 70), resample=Image.LANCZOS)
+                self.dkfz_logo = ImageTk.PhotoImage(ph_resize)  # keep reference on self
+                logo_label = Label(self.WindowMain, image=self.dkfz_logo, borderwidth=0)
+                logo_label.place(x=120, y=70, anchor=CENTER)
+            else:
+                print('dkfz logo not found:', img_path)
+        except Exception as e:
+            print('Could not load dkfz logo:', e)
+
+    def closeWindow(self):
+        self.WindowMain.destroy()
 
 MainGUI=MainGUIObj()
 MainGUI.start_main_GUI()
