@@ -156,8 +156,10 @@ class MainGUIObj:
         if MRexcite_Control.MRexcite_System.EnableModule.RF_Switch==1:
             if MRexcite_Control.MRexcite_System.OpticalModule.select_Rx==0:
                 MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=1
+                MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on=1
             else:
                 MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=0
+                MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on=0
         self.update_status()
 
     def update_status(self):

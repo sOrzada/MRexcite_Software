@@ -413,7 +413,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
         "phase is a single phase in degrees.\n
         "channel" specifies for which channel this sample is. This is necessary to use the correct calibration values.\n
         "mode" specifies which state the amplifier is in.'''
-        
+        back_off=192 #digital back-off to account for 0 point offset in full amplitude.
         if MRexcite_System.RFprepModule.Status=='Full': #Corrections for Full Modulation
             # Order of operation for correction:
             # 1. Calculate corrected amplitude (convert from Volts to digital value with pchip)
@@ -430,7 +430,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
             IQ=(pow(2,13)-1 +self.IQoffset[channel][0])+ 1j*(pow(2,13)-1 +self.IQoffset[channel][1]) + amp_digital*np.exp(1j*np.pi/180*ph) #Only includes offset correction.
         else: #Corrections for Hybrid modulation
             
-            cplx = amp*np.exp(1j*np.pi/180*ph) * (pow(2,13)-5) # Complex value of input
+            cplx = amp*np.exp(1j*np.pi/180*ph) * (pow(2,13)-back_off) # Complex value of input. Apply backoff so that the total digital value including zero offset remains in interval [0,2^14-1] 
             b = np.array([np.real(cplx),np.imag(cplx)]) #Vector with desired ideal I and Q value
             b_corrected = self.CalModInv[channel,mode,:,:].dot(b) #This should now be corrected.
             
