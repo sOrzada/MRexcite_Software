@@ -468,13 +468,30 @@ class ModulatorCalibrationObj:
     def __init__(self) -> None:
         self.number_of_channels = MRexcite_Control.MRexcite_System.Modulator.number_of_channels
         self.active_channel = 1
-        self.IQoffset = MRexcite_Control.MRexcite_System.Modulator.IQoffset_hybrid
-        self.I_values = [pow(2,14)-1]*self.number_of_channels
-        self.Q_values = [pow(2,14)-1]*self.number_of_channels
+        #We need to make sure, the list only contains 1 element per channel:
+        MRexcite_Control.MRexcite_System.Modulator.I_values = [0]*self.number_of_channels
+        MRexcite_Control.MRexcite_System.Modulator.Q_values = [0]*self.number_of_channels
+        
+        #Load the complex measurement data.
+        #We save the raw measurement values. They are a measure of system gain that is reproducible when the correct measurement method is used.
+        #This way, we can swap a single Modulator or amplifier and only perform the calibration for this one.
+        #The correction values are calculated from these values and saved in a different file to reduce calculation overhead.
+        try:
+            self.IQ_meas_cplx=np.load('IQ_meas_cplx.npy')
+        except: #If file doesn't exist, create one simple file.
+            self.IQ_meas_cplx = np.ones((self.number_of_channels,2,2),dtype=np.cdouble)
+            self.IQ_meas_cplx[:,:,1]=1j #Q-Values are initially set to 90° off from I values (as they should ideally be)
+
+        #Prepare the digital values that define the center of modulation space (equivalent to 0 amplitude)
+        self.I_center = [0]*self.number_of_channels
+        self.Q_center = [0]*self.number_of_channels
+        for ch in range(self.number_of_channels):
+            self.I_center[ch]= pow(2,13)-1 + MRexcite_Control.MRexcite_System.Modulator.IQoffset_hybrid[ch][0]
+            self.Q_center[ch]= pow(2,13)-1 + MRexcite_Control.MRexcite_System.Modulator.IQoffset_hybrid[ch][1]
 
         self.selected_value = 0 #Selected value for Measurement. 0:I low, 1:Q low, 2: I high, 3: Q high
         self.CalMod = MRexcite_Control.MRexcite_System.Modulator.CalMod      #Load 1D Calibration from Modulators.
-        self.test_value_digital = 1000 #Digital value used for test.
+        self.test_value_digital = 2000 #Digital value used for test. This is the digital offset from 0 modulation.
 
     def openGUI(self):
         #Preparations for safety:
@@ -648,34 +665,25 @@ class ModulatorCalibrationObj:
 
     def set_modulators(self):
         '''Set the modulators to the correct state and send data to hardware.'''
-        I_values = self.I_values # Make a local copy which can then be changed.
-        Q_values = self.Q_values # Make a local copy which can then be changed.
-
-        #Add offset to the local I and Q values
-        for ch in range(self.number_of_channels):
-            I_values[ch]= I_values[ch] + MRexcite_Control.MRexcite_System.Modulator.IQoffset_hybrid[ch][0]
-            Q_values[ch]= Q_values[ch] + MRexcite_Control.MRexcite_System.Modulator.IQoffset_hybrid[ch][1]
         
         #Decide which value has to be changed in local variable. (We want to change only one digital value away from 0)
         if self.selected_value<2:
-            mode = 0
+            mode = 1
             dimension = self.selected_value
         else:
-            mode = 1
+            mode = 0
             dimension = self.selected_value -2
 
         #Apply local values to variables stored in System
         MRexcite_Control.MRexcite_System.Modulator.Amp_state = [mode]*self.number_of_channels #Set the correct amplifier mode
-        MRexcite_Control.MRexcite_System.Modulator.I_values = I_values 
-        MRexcite_Control.MRexcite_System.Modulator.Q_values = Q_values
         MRexcite_Control.MRexcite_System.Modulator.counter_max = [1]*MRexcite_Control.MRexcite_System.Modulator.number_of_channels #We only apply a single value to I and Q, therefore, we have to set this here.
 
         #Add the test value to the correct variable in the MRexcite System
         ch=self.active_channel-1
         if dimension == 0:
-            MRexcite_Control.MRexcite_System.Modulator.I_values[ch] = MRexcite_Control.MRexcite_System.Modulator.I_values[ch] + self.test_value_digital
+            MRexcite_Control.MRexcite_System.Modulator.I_values[ch] = self.I_center[ch] + self.test_value_digital
         else:
-            MRexcite_Control.MRexcite_System.Modulator.Q_values[ch] = MRexcite_Control.MRexcite_System.Modulator.Q_values[ch] + self.test_value_digital
+            MRexcite_Control.MRexcite_System.Modulator.Q_values[ch] = self.Q_center[ch] + self.test_value_digital
 
         #Apply all data to hardware.
         MRexcite_Control.MRexcite_System.SetAll()
@@ -689,9 +697,9 @@ class ModulatorCalibrationObj:
         else:
             mode = 1
             dimension = self.selected_value -2
-        I_cal = self.CalMod[ch,mode,0,dimension]
-        Q_cal = self.CalMod[ch,mode,1,dimension]
-        value_cplx = I_cal + 1j * Q_cal
+        #I_cal = self.CalMod[ch,mode,0,dimension]
+        #Q_cal = self.CalMod[ch,mode,1,dimension]
+        value_cplx = self.IQ_meas_cplx[ch,mode,dimension]
         d = dict()
         d['Amp_lin'] = np.abs(value_cplx)
         d['Phase_rad'] = np.angle(value_cplx)
@@ -721,11 +729,29 @@ class ModulatorCalibrationObj:
 
         self.CalMod[ch,mode,0,dimension]=I_meas
         self.CalMod[ch,mode,1,dimension]=Q_meas
+        self.IQ_meas_cplx[ch, mode, dimension]=IQ_meas_cplx
 
         self.update()
 
     def saveClose(self): #TODO: Normalize values.
         '''Close Calibration GUI and save the calibration data to file.'''
+        try:
+            np.save('IQ_meas_cplx.npy',self.IQ_meas_cplx)
+        except:
+            print('Error writing Modulator calibration file!')
+
+        #Normalize Values. This is important. We want the minimum value to be the one that uses the full modulator amplitude. The other are turned lower to account for their higher amplitudes.
+        min_amplitude = np.min(np.absolute(self.IQ_meas_cplx),axis=None)
+        IQ_meas_cplx_normalized = self.IQ_meas_cplx / min_amplitude
+
+        for ch in range(self.number_of_channels):
+            for mode in range(2):
+                for dimension in range(2):
+                    self.CalMod[ch,mode,0,dimension]=np.real(IQ_meas_cplx_normalized[ch,mode,dimension])
+                    self.CalMod[ch,mode,1,dimension]=np.imag(IQ_meas_cplx_normalized[ch,mode,dimension])
+
+
+        #Save Values
         MRexcite_Control.MRexcite_System.Modulator.CalMod=self.CalMod #Send calibration data to system.
         MRexcite_Control.MRexcite_System.Modulator.write_Mod_Cal() #Write Calibration data to file.
         try:
