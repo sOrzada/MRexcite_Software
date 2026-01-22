@@ -495,7 +495,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
 
                 byte_stream_c = byte_stream_c + byte_stream_b
             byte_stream = byte_stream + byte_stream_c
-        byte_stream = byte_stream + [CB.prog + CB.reset, 0, 0, 0] + [CB.prog, 0, 0, 0]
+        byte_stream = byte_stream + [CB.prog + CB.reset, 0, 0, 0] + [CB.prog, 0, 0, 0] + [CB.prog + CB.clock, 0, 0, 0] + [CB.prog, 0, 0, 0] #At the end, reset counters and send one clock, so that DAC are loaded with first state!
         data=bytes(byte_stream)    
         return data
 
