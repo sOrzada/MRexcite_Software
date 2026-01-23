@@ -338,12 +338,12 @@ class ModulatorObj: #Contains all data and methods for Modulators
     
     def prepare_mod_cal(self): #TODO: Check whether order in matrix is correct!
         '''This function prepares the matrix inversions for the Modulator calibrations.'''
-        self.CalModInv = self.CalMod #Prepare array for inverted matrices
+        self.CalModInv = np.empty_like(self.CalMod) #Prepare array for inverted matrices
         for ch in range(self.number_of_channels):
             for mode in range(2):
                 matrix_temp = self.CalMod[ch,mode,:,:]
                 self.CalModInv[ch,mode,:,:] = np.linalg.inv(matrix_temp)
-        
+
     def set_amplitudes_phases_state(self,amplitudes_in,phases_in,state_in):
         '''Sets the digital I and Q values to achieve the amplitudes and phases specified in the input variables.\n
         This includes normalizing according to the calibration. Be aware that the pulse amplitude is normalized depending on the state of the RF preparation (Full or Hybrid modulation). Make sure that the state is set before applying amplitudes and phases!'''
@@ -433,7 +433,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
             cplx = amp*np.exp(1j*np.pi/180*ph) * (pow(2,13)-back_off) # Complex value of input. Apply backoff so that the total digital value including zero offset remains in interval [0,2^14-1] 
             b = np.array([np.real(cplx),np.imag(cplx)]) #Vector with desired ideal I and Q value
             b_corrected = self.CalModInv[channel,mode,:,:].dot(b) #This should now be corrected.
-            
+            #print(b_corrected)
             IQ=(pow(2,13)-1 + self.IQoffset_hybrid[channel][0]+ 1j*(pow(2,13)-1 +self.IQoffset_hybrid[channel][1])) + b_corrected[0]+1j*b_corrected[1] #Complete correction.
         
         

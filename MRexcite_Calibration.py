@@ -744,8 +744,9 @@ class ModulatorCalibrationObj:
 
         #Normalize Values. This is important. We want the minimum value to be the one that uses the full modulator amplitude. The other are turned lower to account for their higher amplitudes.
         min_amplitude = np.min(np.absolute(self.IQ_meas_cplx),axis=None)
+        #print(min_amplitude)
         IQ_meas_cplx_normalized = self.IQ_meas_cplx / min_amplitude
-
+        #print(IQ_meas_cplx_normalized)
         for ch in range(self.number_of_channels):
             for mode in range(2):
                 for dimension in range(2):
