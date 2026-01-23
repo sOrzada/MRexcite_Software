@@ -479,8 +479,8 @@ class ModulatorCalibrationObj:
         try:
             self.IQ_meas_cplx=np.load('IQ_meas_cplx.npy')
         except: #If file doesn't exist, create one simple file.
-            self.IQ_meas_cplx = np.ones((self.number_of_channels,2,2),dtype=np.cdouble)
-            self.IQ_meas_cplx[:,:,1]=1j #Q-Values are initially set to 90° off from I values (as they should ideally be)
+            self.IQ_meas_cplx = np.ones((self.number_of_channels,2,2),dtype=np.cdouble)*2000 #Let's assume the gain is ~66dB
+            self.IQ_meas_cplx[:,:,1]=1j * 2000 #Q-Values are initially set to 90° off from I values (as they should ideally be)
 
         #Prepare the digital values that define the center of modulation space (equivalent to 0 amplitude)
         self.I_center = [0]*self.number_of_channels
@@ -609,22 +609,22 @@ class ModulatorCalibrationObj:
         # Clear the previous plot
         self.plotFigureModIQ.clear()
         ch = self.active_channel-1
-        values = self.CalMod[ch,:,:,:]
+        values = self.IQ_meas_cplx[ch,:,:]
 
         # Plot low-gain I measurement as a vector in polar coordinates
-        cplx_value = (values[0,0,0]+1j*values[0,1,0])
+        cplx_value = (values[0,0])
         self.plotFigureModIQ.plot([0,np.angle(cplx_value)],[0,np.abs(cplx_value)], color = color_I_low)
 
         # Plot low-gain Q measurement as a vector in polar coordinates
-        cplx_value = (values[0,0,1]+1j*values[0,1,1])
+        cplx_value = (values[0,1])
         self.plotFigureModIQ.plot([0,np.angle(cplx_value)],[0,np.abs(cplx_value)],color = color_Q_low)
 
         # Plot high-gain I measurement as a vector in polar coordinates
-        cplx_value = (values[1,0,0]+1j*values[1,1,0])
+        cplx_value = (values[1,0])
         self.plotFigureModIQ.plot([0,np.angle(cplx_value)],[0,np.abs(cplx_value)], color = color_I_high)
 
         # Plot high-gain Q measurement as a vector in polar coordinates
-        cplx_value = (values[1,0,1]+1j*values[1,1,1])
+        cplx_value = (values[1,1])
         self.plotFigureModIQ.plot([0,np.angle(cplx_value)],[0,np.abs(cplx_value)], color = color_Q_high)
 
         # Highlight the currently selected measurement point
@@ -668,10 +668,10 @@ class ModulatorCalibrationObj:
         
         #Decide which value has to be changed in local variable. (We want to change only one digital value away from 0)
         if self.selected_value<2:
-            mode = 1
+            mode = 0
             dimension = self.selected_value
         else:
-            mode = 0
+            mode = 1
             dimension = self.selected_value -2
 
         #Apply local values to variables stored in System
@@ -682,7 +682,9 @@ class ModulatorCalibrationObj:
         ch=self.active_channel-1
         if dimension == 0:
             MRexcite_Control.MRexcite_System.Modulator.I_values[ch] = self.I_center[ch] + self.test_value_digital
+            MRexcite_Control.MRexcite_System.Modulator.Q_values[ch] = self.Q_center[ch]
         else:
+            MRexcite_Control.MRexcite_System.Modulator.I_values[ch] = self.I_center[ch]
             MRexcite_Control.MRexcite_System.Modulator.Q_values[ch] = self.Q_center[ch] + self.test_value_digital
 
         #Apply all data to hardware.
