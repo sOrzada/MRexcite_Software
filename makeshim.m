@@ -1,6 +1,6 @@
 function makeshim
 Nch=32;
-Nsamples = 1;
+Nsamples = 0;
 frequency = 1e5;
 trigger_count = 1000;
 filename = 'test_phase_90.mat';
@@ -14,11 +14,9 @@ if Nsamples>=1
         shim(:,3,a)=1; %Amplifier mode (0: Low power, 1: high power).
     end
 else
-    for a=1:2
-        shim(:,a,1)=1;
-        shim(:,a,2)=CP_shim32;
-        shim(:,a,3)=1;
-    end
+    shim(:,1)=1;
+    shim(:,2)=CP_shim32;
+    shim(:,3)=1;
 end
 
 % Set gain. (Use 'high', 'low', or integer between -31 and 22)
