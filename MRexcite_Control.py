@@ -455,7 +455,10 @@ class ModulatorObj: #Contains all data and methods for Modulators
         '''Returns a byte stream to be transmitted via SPI. This byte stream is suited to programm the modulators (hardware) to the state given in this object'''
         CB = ControlByteObj() #For improved readability use the object CB to generate the control bits.
         byte_stream = [CB.prog, 0 , 0, 0]*1000 #Make sure the switching to programming mode is finished.
+        is_multi_sample=False
         for a in range(self.number_of_channels): #Run through all channels
+            if self.counter_max[a]>1:
+                is_multi_sample=True
             data1=self.counter_max[a]%256
             data2=math.floor(self.counter_max[a]/256)
             byte_stream_add = [CB.prog + CB.chip0, a + self.start_address, data2, data1,
@@ -495,7 +498,13 @@ class ModulatorObj: #Contains all data and methods for Modulators
 
                 byte_stream_c = byte_stream_c + byte_stream_b
             byte_stream = byte_stream + byte_stream_c
-        byte_stream = byte_stream + [CB.prog + CB.reset, 0, 0, 0] + [CB.prog, 0, 0, 0] +[0, 0, 0, 0] + [CB.clock, 0, 0, 0] + [0, 0, 0, 0] #At the end, reset counters and send one clock, so that DAC are loaded with first state!
+        
+
+        byte_stream = byte_stream + [CB.prog + CB.reset, 0, 0, 0] + [CB.prog, 0, 0, 0] +[0, 0, 0, 0]  #At the end, reset counters and send one clock, so that DAC are loaded with first state!
+        if is_multi_sample:     #If this is a multi-sample pulse, we do not need an extra trigger, because we assume that there is a trigger with the first RF pulse.
+            pass
+        else:           #If this is not a multi-sample pulse, we assume that we need an extra trigger, because there might not be a trigger with the first RF pulse.
+            byte_stream = byte_stream + [CB.clock, 0, 0, 0] + [0, 0, 0, 0]
         data=bytes(byte_stream)    
         return data
 
