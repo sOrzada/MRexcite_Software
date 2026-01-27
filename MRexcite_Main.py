@@ -67,6 +67,9 @@ class MainGUIObj:
         PulseMenu.add_command(label='Set CP+ Mode', command=self.setCPplus)
         PulseMenu.add_command(label='Set simple TIAMO', command=self.setTIAMO)
         PulseMenu.add_separator()
+        PulseMenu.add_command(label='Channelwise B1 Map', command=self.setCHB1)
+        PulseMenu.add_command(label='Channelwise MRF', command=self.setMRF)
+        PulseMenu.add_separator()
         PulseMenu.add_command(label='Pulse Info', command=self.PulseInfo)
 
         TriggerMenu=Menu(MenuBar, tearoff=0)
@@ -386,7 +389,23 @@ class MainGUIObj:
             print('Error. Could not open CP-plus definition.')
             return
         self.loadShim(fname=fname)
+    def setCHB1(self):
+        try:
+            filename = os.path.abspath(os.path.join(os.path.dirname(__file__), 'shims', 'B1_mapping', 'chwise_b1mapping.mat'))
+            fname = open(filename)
+        except:
+            print('Error. Could not open Channelwise B1 Mapping dataset.')
+            return
+        self.loadShim(fname=fname)
 
+    def setMRF(self):
+        try:
+            filename = os.path.abspath(os.path.join(os.path.dirname(__file__), 'shims', 'B1_mapping', 'MRF_chwise_b1mapping.mat'))
+            fname = open(filename)
+        except:
+            print('Error. Could not open Channelwise MRF B1 Mapping dataset.')
+            return
+        self.loadShim(fname=fname)
     def PulseInfo(self): #Provides Information on loaded pulse.
         pass
 
