@@ -274,8 +274,9 @@ class MainGUIObj:
         Matlab: Needs to contain variables with one being "shim".\n
         Numpy: Pack variables in a dictionary. One variable needs to be "shim".'''
         f_name = kwargs.get('fname',[])
+        start_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'shims'))
         if f_name==[]:
-            f_name=filedialog.askopenfile(mode='rb', filetypes=(('Matlab File','*.mat'),('Numpy Files','*.npz')), defaultextension=(('Matlab File','*.mat'),))
+            f_name=filedialog.askopenfile(mode='rb', initialdir=start_dir, filetypes=(('Matlab File','*.mat'),('Numpy Files','*.npz')), defaultextension=(('Matlab File','*.mat'),))
         self.displayShim.set(str(f_name.name))
         if f_name is not None:
             try:
@@ -367,7 +368,8 @@ class MainGUIObj:
 
     def setCPplus(self): #Applies the CP+ mode for the Body coil.
         try:
-            fname = open(os.path.dirname(__file__) + '/CP_plus.mat')
+            filename = os.path.abspath(os.path.join(os.path.dirname(__file__), 'shims', 'default', 'CP_plus.mat'))
+            fname = open(filename)
         except:
             print('Error. Could not open CP-plus definition.')
             return
@@ -375,7 +377,8 @@ class MainGUIObj:
 
     def setTIAMO(self): #Loads a simple predefined TIAMO shim set.
         try:
-            fname = open(os.path.dirname(__file__) + '/Simple_TIAMO.mat')
+            filename = os.path.abspath(os.path.join(os.path.dirname(__file__), 'shims', 'default', 'simple_TIAMO.mat'))
+            fname = open(filename)
         except:
             print('Error. Could not open CP-plus definition.')
             return

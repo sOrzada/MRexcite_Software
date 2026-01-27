@@ -3,10 +3,14 @@ Nch=32;
 Nsamples = 0;
 frequency = 1e5;
 trigger_count = 1000;
-filename = 'test_phase_90.mat';
+filename = 'CP_2plus.mat';
 
 % Make shim vector:
-shim=zeros(Nch,3,Nsamples);
+if Nsamples>0
+    shim=zeros(Nch,3,Nsamples);
+else
+    shim=zeros(Nch,3);
+end
 if Nsamples>=1
     for a=1:Nsamples
         shim(:,1,a)=0.7;%a/1500; %Amplitude either in V (for high gain) or 0 to 1 for low gain.
@@ -15,7 +19,7 @@ if Nsamples>=1
     end
 else
     shim(:,1)=1;
-    shim(:,2)=CP_shim32;
+    shim(:,2)=CP_shim32*2;
     shim(:,3)=1;
 end
 
