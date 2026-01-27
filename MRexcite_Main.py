@@ -277,8 +277,8 @@ class MainGUIObj:
         start_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'shims'))
         if f_name==[]:
             f_name=filedialog.askopenfile(mode='rb', initialdir=start_dir, filetypes=(('Matlab File','*.mat'),('Numpy Files','*.npz')), defaultextension=(('Matlab File','*.mat'),))
-        self.displayShim.set(str(f_name.name))
         if f_name is not None:
+            self.displayShim.set(str(f_name.name))
             try:
                 if f_name.name.endswith('.mat'):
                     data = scipy.io.loadmat(f_name.name)
@@ -288,6 +288,9 @@ class MainGUIObj:
                     print('Unsupported file format.')
             except Exception as e:
                 print(f"Error loading shim file: {e}")
+        else:
+            print('No file selected. Non loaded.')
+            return
         
         # Check if the loaded data is a dictionary
         if not isinstance(data, dict) and not isinstance(data, np.lib.npyio.NpzFile):
