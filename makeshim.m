@@ -1,9 +1,9 @@
 function makeshim
 Nch=32;
-Nsamples = 0;
+Nsamples = 1000;
 frequency = 1e5;
 trigger_count = 1000;
-filename = 'CP_2plus.mat';
+filename = '.\shims\system_test\TestMode.mat';
 
 % Make shim vector:
 if Nsamples>0
@@ -13,9 +13,13 @@ else
 end
 if Nsamples>=1
     for a=1:Nsamples
-        shim(:,1,a)=0.7;%a/1500; %Amplitude either in V (for high gain) or 0 to 1 for low gain.
-        shim(:,2,a)=90; %Phase in degree.
-        shim(:,3,a)=1; %Amplifier mode (0: Low power, 1: high power).
+        shim(:,1,a)=abs(0.7*sin(a/100*pi)); %Amplitude either in V (for high gain) or 0 to 1 for low gain.
+        shim(:,2,a)=a/10; %Phase in degree.
+        if shim(:,1,a)>0.35
+            shim(:,3,a)=1; %Amplifier mode (0: Low power, 1: high power).
+        else
+            shim(:,3,a)=0;
+        end
     end
 else
     shim(:,1)=1;

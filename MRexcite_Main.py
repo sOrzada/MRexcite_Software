@@ -877,23 +877,23 @@ class pulseInfoWindowObj:
         self.PulseWindow.protocol('WM_DELETE_WINDOW', self.closeWindow)
 
         #Channel Select
-        self.channelSelectInit(x_center=150,y_center=50) #Initialize Listbox for channel selection
+        self.channelSelectInit(x_center=200,y_center=40) #Initialize Listbox for channel selection
         
         #Sample Select
-        self.sampleSelectInit(x_center=150, y_center=100) #Initialize Listbox for sample selection
+        self.sampleSelectInit(x_center=200, y_center=90) #Initialize Listbox for sample selection
 
-        #Initialize Figure for linearity results
+        #Initialize Figure for amplitude and phase
         self.FigurePulse = Figure(figsize=(9,5), dpi=80)
         self.plotFigureAmplitude = self.FigurePulse.add_subplot(111) #Axes for Amplitude
         self.plotFigureAngle= self.plotFigureAmplitude.twinx() #Axes for Phase
         self.pulseFigureCanvas = FigureCanvasTkAgg(self.FigurePulse, master=self.PulseWindow)
-        self.pulseFigureCanvas.get_tk_widget().place(x=750, y=200, anchor='center')
+        self.pulseFigureCanvas.get_tk_widget().place(x=750, y=250, anchor='center')
 
         #Initialize Figure for Polar Plot for one sample
         self.PolarPlotFigure = Figure(figsize=(4,4), dpi=80)
         self.plotPolarPlot = self.PolarPlotFigure.add_subplot(111,projection='polar') #Axes for Amplitude
         self.canvasPolarPlot = FigureCanvasTkAgg(self.PolarPlotFigure, master=self.PulseWindow)
-        self.canvasPolarPlot.get_tk_widget().place(x=200, y=300, anchor='center')
+        self.canvasPolarPlot.get_tk_widget().place(x=200, y=290, anchor='center')
 
         #Initialize Pulse data
         self.pulseAmp = MRexcite_Control.MRexcite_System.Modulator.amplitudes
@@ -928,6 +928,7 @@ class pulseInfoWindowObj:
         Button_next.place(x=x_center+50,y=y_center, anchor='center')
 
     def channelselect(self,a):
+        '''Function for selecting the active channel'''
         self.active_channel = self.active_channel + a
         if self.active_channel<1:
             self.active_channel=1
@@ -937,6 +938,7 @@ class pulseInfoWindowObj:
         self.update()
 
     def sampleSelect(self,a):
+        '''Function for selecting the active sample. Note: You can only choose a sample that EVERY channel has.'''
         self.active_sample = self.active_sample + a
         if self.active_sample<0:
             self.active_sample=0
@@ -949,6 +951,7 @@ class pulseInfoWindowObj:
         self.plotFigure()
 
     def plotFigure(self):
+        '''Function to plot all figures.'''
         self.plotFigureAmplitude.clear()
         self.plotFigureAngle.clear()
         self.plotPolarPlot.clear()
@@ -966,24 +969,34 @@ class pulseInfoWindowObj:
         self.plotFigureAngle.plot(x,y2,color_angle)
 
         self.plotFigureAmplitude.set_xlabel('Sample #')
-        self.plotFigureAmplitude.set_ylabel(self.ylabel_text)
-        self.plotFigureAngle.set_ylabel('Phase in °')
+        self.plotFigureAmplitude.set_ylabel(self.ylabel_text,color='tab:blue')
+        self.plotFigureAngle.set_ylabel('Phase in °',color='tab:red')
         self.plotFigureAngle.yaxis.set_label_position('right')
         
         #Color Background according to amplifier mode. This is very slow. Need to use fewer boxes.
         if isMultiSample:
-            for a in range(self.pulseCounter[self.active_channel-1]):
-                if self.pulseMode[self.active_channel-1][a] == 1:
+            switchPos,value = self._calcBackground(self.pulseMode[self.active_channel-1])
+            numberOfAreas = len(value)
+            
+            if numberOfAreas ==1: #If there is only one mode thorughout the pulse
+                if value[0] == 1:
                     backcolor = 'tab:red'
                 else:
                     backcolor = 'tab:green'
-                self.plotFigureAmplitude.axvspan(xmin=a-0.5,xmax=a+0.5,color=backcolor,alpha=0.1)
+                self.plotFigureAmplitude.axvspan(xmin=0,xmax=self.pulseCounter[self.active_channel-1]-1,color=backcolor,alpha=0.07)
+            else: #If there are changes of the amplifier mode during the pulse
+                for a in range(numberOfAreas):
+                    if value[a] == 1:
+                        backcolor = 'tab:red'
+                    else:
+                        backcolor = 'tab:green'
+                    self.plotFigureAmplitude.axvspan(xmin=switchPos[a]-0.5,xmax=switchPos[a+1]+0.5,color=backcolor,alpha=0.07)
         else:
             if self.pulseMode[self.active_channel-1] == 1:
                 backcolor = 'tab:red'
             else:
                 backcolor = 'tab:green'
-            self.plotFigureAmplitude.axvspan(xmin=-0.5,xmax=0.5,color=backcolor,alpha=0.1)
+            self.plotFigureAmplitude.axvspan(xmin=-0.5,xmax=0.5,color=backcolor,alpha=0.07)
 
 
         
@@ -1001,7 +1014,26 @@ class pulseInfoWindowObj:
 
         self.FigurePulse.canvas.draw()
         self.PolarPlotFigure.canvas.draw()
+    
+    def _calcBackground(self,mode):
+        '''Function to calculate the background color for amplifier mode'''
+        numberOfSamples = len(mode)
+        if numberOfSamples == 1:
+            return 0, mode
+        
+        currentValue = -1
+        switch_pos=[]
+        value=[]
+        for a in range(numberOfSamples):
+            if mode[a] != currentValue:
+                switch_pos.append(a)
+                value.append(mode[a])
+                currentValue = mode[a]
+        switch_pos.append(numberOfSamples-1) #include maximum number of samples as end point for areas.
+        return switch_pos,value
+        
     def closeWindow(self):
+        '''Function to close the Pulse Info window.'''
         self.PulseWindow.destroy()
 MainGUI=MainGUIObj()
 MainGUI.start_main_GUI()
