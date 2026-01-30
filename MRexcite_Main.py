@@ -906,7 +906,7 @@ class pulseInfoWindowObj:
             self.ylabel_text = 'Amplitude in V'
         else:
             self.ylabel_text = 'Relative Amplitude'
-
+        self.sampleSelect(0)
         self.update()
 
     def channelSelectInit(self,x_center,y_center):
@@ -942,7 +942,7 @@ class pulseInfoWindowObj:
         self.active_sample = self.active_sample + a
         if self.active_sample<0:
             self.active_sample=0
-        elif self.active_sample==self.pulseMinCounter:
+        elif self.active_sample>=self.pulseMinCounter:
             self.active_sample=self.pulseMinCounter-1
         self.label_sample.config(text= str(self.active_sample))
         self.update()
