@@ -17,6 +17,9 @@ from PIL import Image, ImageTk
 from threading import Thread
 from random import randint
 import webbrowser
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
 
 ### Define GUI ###
 class MainGUIObj:
@@ -46,6 +49,7 @@ class MainGUIObj:
         self.CalibrateZero=MRexcite_Calibration.CalibrateZeroObj()
         self.CalibrateMod = MRexcite_Calibration.ModulatorCalibrationObj()
         self.CalibrateLin = MRexcite_Calibration.CalibrateLinearity1DObj()
+        self.PulseInfoGUI = pulseInfoWindowObj()
         self.update_status()
 
     def menu_bar(self): #Menu Bar for main window.
@@ -407,7 +411,7 @@ class MainGUIObj:
             return
         self.loadShim(fname=fname)
     def PulseInfo(self): #Provides Information on loaded pulse.
-        pass
+        self.PulseInfoGUI.openGUI()
 
     def TriggerReset(self):
         MRexcite_Control.MRexcite_System.TriggerReset()
@@ -857,6 +861,148 @@ class InfoWindowObj:
     def closeWindow(self):
         self.WindowMain.destroy()
 
+class pulseInfoWindowObj:
+    def __init__(self):
+        self.active_channel = 1
+        self.number_of_channels = MRexcite_Control.MRexcite_System.Modulator.number_of_channels
+        self.active_sample = 0
+    def openGUI(self):
+        '''Function defines and opens window for GUI.'''
+        #Window for Pulse Info
+        self.PulseWindow = Toplevel()
+        self.PulseWindow.title('Pulse Info')
+        self.PulseWindow.config(width=1200, height=500)
+        self.PulseWindow.resizable(False,False)
+        self.PulseWindow.iconbitmap(os.path.dirname(__file__) + r'\images\MRexcite_logo.ico')
+        self.PulseWindow.protocol('WM_DELETE_WINDOW', self.closeWindow)
+
+        #Channel Select
+        self.channelSelectInit(x_center=150,y_center=50) #Initialize Listbox for channel selection
+        
+        #Sample Select
+        self.sampleSelectInit(x_center=150, y_center=100) #Initialize Listbox for sample selection
+
+        #Initialize Figure for linearity results
+        self.FigurePulse = Figure(figsize=(9,5), dpi=80)
+        self.plotFigureAmplitude = self.FigurePulse.add_subplot(111) #Axes for Amplitude
+        self.plotFigureAngle= self.plotFigureAmplitude.twinx() #Axes for Phase
+        self.pulseFigureCanvas = FigureCanvasTkAgg(self.FigurePulse, master=self.PulseWindow)
+        self.pulseFigureCanvas.get_tk_widget().place(x=750, y=200, anchor='center')
+
+        #Initialize Figure for Polar Plot for one sample
+        self.PolarPlotFigure = Figure(figsize=(4,4), dpi=80)
+        self.plotPolarPlot = self.PolarPlotFigure.add_subplot(111,projection='polar') #Axes for Amplitude
+        self.canvasPolarPlot = FigureCanvasTkAgg(self.PolarPlotFigure, master=self.PulseWindow)
+        self.canvasPolarPlot.get_tk_widget().place(x=200, y=300, anchor='center')
+
+        #Initialize Pulse data
+        self.pulseAmp = MRexcite_Control.MRexcite_System.Modulator.amplitudes
+        self.pulsePhase = MRexcite_Control.MRexcite_System.Modulator.phases
+        self.pulseMode = MRexcite_Control.MRexcite_System.Modulator.Amp_state
+        self.pulseCounter = MRexcite_Control.MRexcite_System.Modulator.counter_max
+        self.pulseMinCounter = min(self.pulseCounter) #Minimum of number of samples through all channels
+
+        if MRexcite_Control.MRexcite_System.RFprepModule.Status == 'High':
+            self.ylabel_text = 'Amplitude in V'
+        else:
+            self.ylabel_text = 'Relative Amplitude'
+
+        self.update()
+
+    def channelSelectInit(self,x_center,y_center):
+        '''Initializes the channel selection interface at the coordinates specified by x_center and y_center.'''
+        Button_prev = Button(self.PulseWindow, width=3,height=1, text='<', command=lambda: self.channelselect(-1))
+        Button_next = Button(self.PulseWindow, width=3,height=1, text='>', command=lambda: self.channelselect(+1))
+        self.label_channel = Label(self.PulseWindow, height=1, width=6, text='Ch ' + str(self.active_channel), relief='sunken', bg='white')
+        Button_prev.place(x=x_center-50,y=y_center,anchor='center')
+        self.label_channel.place(x=x_center,y=y_center, anchor='center')
+        Button_next.place(x=x_center+50,y=y_center, anchor='center')
+    
+    def sampleSelectInit(self,x_center,y_center):
+        '''Initializes the channel selection interface at the coordinates specified by x_center and y_center.'''
+        Button_prev = Button(self.PulseWindow, width=3,height=1, text='<', command=lambda: self.sampleSelect(-1))
+        Button_next = Button(self.PulseWindow, width=3,height=1, text='>', command=lambda: self.sampleSelect(+1))
+        self.label_sample = Label(self.PulseWindow, height=1, width=6, text=str(self.active_sample), relief='sunken', bg='white')
+        Button_prev.place(x=x_center-50,y=y_center,anchor='center')
+        self.label_sample.place(x=x_center,y=y_center, anchor='center')
+        Button_next.place(x=x_center+50,y=y_center, anchor='center')
+
+    def channelselect(self,a):
+        self.active_channel = self.active_channel + a
+        if self.active_channel<1:
+            self.active_channel=1
+        elif self.active_channel>self.number_of_channels:
+            self.active_channel=self.number_of_channels
+        self.label_channel.config(text='Ch ' + str(self.active_channel))
+        self.update()
+
+    def sampleSelect(self,a):
+        self.active_sample = self.active_sample + a
+        if self.active_sample<0:
+            self.active_sample=0
+        elif self.active_sample==self.pulseMinCounter:
+            self.active_sample=self.pulseMinCounter-1
+        self.label_sample.config(text= str(self.active_sample))
+        self.update()
+
+    def update(self):
+        self.plotFigure()
+
+    def plotFigure(self):
+        self.plotFigureAmplitude.clear()
+        self.plotFigureAngle.clear()
+        self.plotPolarPlot.clear()
+
+        color_amp = 'tab:blue' #Color for amplitude plot
+        color_angle = 'tab:red' #Color for phase plot
+
+        isMultiSample = self.pulseCounter[self.active_channel-1] > 1 #I use this to distinguish between multi-sample and single sample pulses. This is important for referencing samples in the code.
+
+        #Pulse plot for one channel
+        x = range(self.pulseCounter[self.active_channel-1])
+        y1 = self.pulseAmp[self.active_channel-1]
+        y2 = self.pulsePhase[self.active_channel-1]
+        self.plotFigureAmplitude.plot(x,y1,color_amp)
+        self.plotFigureAngle.plot(x,y2,color_angle)
+
+        self.plotFigureAmplitude.set_xlabel('Sample #')
+        self.plotFigureAmplitude.set_ylabel(self.ylabel_text)
+        self.plotFigureAngle.set_ylabel('Phase in °')
+        self.plotFigureAngle.yaxis.set_label_position('right')
+        
+        #Color Background according to amplifier mode. This is very slow. Need to use fewer boxes.
+        if isMultiSample:
+            for a in range(self.pulseCounter[self.active_channel-1]):
+                if self.pulseMode[self.active_channel-1][a] == 1:
+                    backcolor = 'tab:red'
+                else:
+                    backcolor = 'tab:green'
+                self.plotFigureAmplitude.axvspan(xmin=a-0.5,xmax=a+0.5,color=backcolor,alpha=0.1)
+        else:
+            if self.pulseMode[self.active_channel-1] == 1:
+                backcolor = 'tab:red'
+            else:
+                backcolor = 'tab:green'
+            self.plotFigureAmplitude.axvspan(xmin=-0.5,xmax=0.5,color=backcolor,alpha=0.1)
+
+
+        
+        #Polar plot for one sample
+        for a in range(self.number_of_channels):
+            if isMultiSample:
+                self.plotPolarPlot.plot([0,self.pulsePhase[a][self.active_sample]/180*3.1415],[0,self.pulseAmp[a][self.active_sample]])
+            else:
+                self.plotPolarPlot.plot([0,self.pulsePhase[a]/180*3.1415],[0,self.pulseAmp[a]])
+        if isMultiSample:
+            self.plotPolarPlot.scatter(self.pulsePhase[self.active_channel-1][self.active_sample]/180*3.1415,self.pulseAmp[self.active_channel-1][self.active_sample],marker='o',c='tab:red',s=100)
+        else:
+            self.plotPolarPlot.scatter(self.pulsePhase[self.active_channel-1]/180*3.1415,self.pulseAmp[self.active_channel-1],marker='o',c='tab:red',s=100)
+        
+
+        self.FigurePulse.canvas.draw()
+        self.PolarPlotFigure.canvas.draw()
+    def closeWindow(self):
+        self.PulseWindow.destroy()
 MainGUI=MainGUIObj()
 MainGUI.start_main_GUI()
 MainGUI.MainWindow.mainloop()
