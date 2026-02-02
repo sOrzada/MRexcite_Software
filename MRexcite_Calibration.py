@@ -14,6 +14,7 @@ from time import sleep
 import numpy as np
 
 U_0dBm = math.sqrt(0.05) #RMS voltage at 0 dBm on 50 Ohms.
+U_0dBm = U_0dBm * pow(10,MRexcite_Control.MRexcite_System.Modulator.Cal1D_reference/20) #Normalize with reference amplitude used in VNA.
 
 class CalibrateZeroObj:
     '''This class is used to calibrate the modulators LO-feedthrough/zero offset.\n
@@ -200,7 +201,7 @@ class CalibrateLinearity1DObj:
         self.Cal1D = MRexcite_Control.MRexcite_System.Modulator.Cal1D       #Load 1D Calibration from Modulators.
         self.dig_index = 0  #Always start with the first digital value (which is 0, so no danger to components or people)
         self.max_dig_value = MRexcite_Control.MRexcite_System.Modulator.number_of_1D_samples #Maximum number of 1D samples.
-
+        
     def openGUI(self):
         '''Prepares and Opens the GUI or this Class Object.'''
         #Preparations for safety:
@@ -217,7 +218,7 @@ class CalibrateLinearity1DObj:
         #Load explanatory image and show in GUI
         self.image_path=os.path.dirname(__file__) + r'\Images\Cal_Lin1D.jpg'
         self.ph=Image.open(self.image_path)
-        self.ph_resize=self.ph.resize((550,375), resample=1)
+        self.ph_resize=self.ph.resize((550,282), resample=1)
         self.ph_image=ImageTk.PhotoImage(self.ph_resize)
         self.label_image = Label(self.WindowCalLin, image=self.ph_image)
         self.label_image.config(image=self.ph_image)
@@ -519,6 +520,16 @@ class ModulatorCalibrationObj:
         self.canvasFigureModIQ = FigureCanvasTkAgg(self.FigureModIQ, master=self.WindowCalMod)
         self.canvasFigureModIQ.get_tk_widget().place(x=500, y=250, anchor='center')
         self.plotFigureModIQ.set_ylim([0,2])
+
+        #Load explanatory image and show in GUI
+        self.image_path=os.path.dirname(__file__) + r'\Images\Cal_Lin1D.jpg'
+        self.ph=Image.open(self.image_path)
+        self.ph_resize=self.ph.resize((550,282), resample=1)
+        self.ph_image=ImageTk.PhotoImage(self.ph_resize)
+        self.label_image = Label(self.WindowCalMod, image=self.ph_image)
+        self.label_image.config(image=self.ph_image)
+        self.label_image.place(x=1000,y=250, anchor='center')
+
 
         #Set System state
         MRexcite_Control.MRexcite_System.RFprepModule.set_gain_low() #This is the calibration for the low gain state, so set it.

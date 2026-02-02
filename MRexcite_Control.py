@@ -46,11 +46,13 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
         except:
             pass
     def enable_system(self,**kwargs):
+        '''Enables the unblank of the modulators.'''
         add = kwargs.get('add',0) #Can enable system and optionally light up one address.
         self.Unblank_Status=1
         self.SPI.send_bitstream(bytes([128,add,0,0]))
 
     def disable_system(self):
+        '''Resets the unblank to make sure, no signal can be send.'''
         self.Unblank_Status=0
         try:
             self.SPI.send_bitstream(bytes([0,0,0,0]))
@@ -92,6 +94,7 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
         except:
             print('Error: Could not transmit via SPI!')
     def LightAddress(self,address):
+        '''Calling this function lights up the LED on the card with the address that is provided.'''
         bitstream=[0,address,0,0]
         try:
             self.SPI.send_bitstream(bytes(bitstream))
@@ -135,7 +138,7 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
 
 ### Helper Classes ###
 class PulseObj:
-    '''This is a Pulse Object for saving/loading pulses to/from files.'''
+    '''This is a Pulse Object for saving/loading pulses to/from files. Not implemented. For future use?'''
     Amplitudes=[]
     Phases=[]
     States=[]
@@ -252,6 +255,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
             print(f'Could not open Modulator calibration file "{self.f_name_CalMod}". Falling back to generic calibration data.')
         
         #Initialize Variables for Linearity Calibration
+        self.Cal1D_reference = int(config['Calibration']['Calibration1D_reference'])
         self.number_of_1D_samples=12
         Dig_Values = [0, 250, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500]
         for a in range(self.number_of_1D_samples):
@@ -716,16 +720,3 @@ config.read(os.path.dirname(__file__) + '/MRexcite_config.ini')
 ### Instance Hardware Objects ###
 MRexcite_System = MRexcite_SystemObj(config)
 print('Initialized System')
-
-'''
-Testarray_single=[10]*MRexcite_System.Modulator.number_of_channels
-Testarray_single2=[0]*MRexcite_System.Modulator.number_of_channels
-Testarray_many=[]
-Testarray_many2=[]
-
-for a in range(MRexcite_System.Modulator.number_of_channels):
-    Testarray_many.append(Testarray_single)
-    Testarray_many2.append(Testarray_single2)
-
-
-MRexcite_System.Modulator.set_amplitudes_phases_state(Testarray_many,Testarray_many,Testarray_many2)'''

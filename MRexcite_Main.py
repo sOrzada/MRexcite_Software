@@ -862,6 +862,7 @@ class InfoWindowObj:
         self.WindowMain.destroy()
 
 class pulseInfoWindowObj:
+    '''This object displays a window in which the currently loaded shim/pulse can be inspected.'''
     def __init__(self):
         self.active_channel = 1
         self.number_of_channels = MRexcite_Control.MRexcite_System.Modulator.number_of_channels
@@ -948,6 +949,7 @@ class pulseInfoWindowObj:
         self.update()
 
     def update(self):
+        '''Dummy function to update plots'''
         self.plotFigure()
 
     def plotFigure(self):
@@ -958,6 +960,9 @@ class pulseInfoWindowObj:
 
         color_amp = 'tab:blue' #Color for amplitude plot
         color_angle = 'tab:red' #Color for phase plot
+        color_mode_low = 'tab:green' #Color for background for samples in low power mode
+        color_mode_high = 'tab:red' #Color for background for samples in high power mode
+        alpha_background = 0.1 #Opaqueness of the background showing the mode of the amplifier within the plot
 
         isMultiSample = self.pulseCounter[self.active_channel-1] > 1 #I use this to distinguish between multi-sample and single sample pulses. This is important for referencing samples in the code.
 
@@ -973,34 +978,34 @@ class pulseInfoWindowObj:
         self.plotFigureAngle.set_ylabel('Phase in °',color='tab:red')
         self.plotFigureAngle.yaxis.set_label_position('right')
         
-        #Color Background according to amplifier mode. This is very slow. Need to use fewer boxes.
-        if isMultiSample:
+        #Color Background according to amplifier mode.
+        if isMultiSample: #Multiple samples in the file
             switchPos,value = self._calcBackground(self.pulseMode[self.active_channel-1])
             numberOfAreas = len(value)
             
             if numberOfAreas ==1: #If there is only one mode thorughout the pulse
                 if value[0] == 1:
-                    backcolor = 'tab:red'
+                    backcolor = color_mode_high
                 else:
-                    backcolor = 'tab:green'
-                self.plotFigureAmplitude.axvspan(xmin=0,xmax=self.pulseCounter[self.active_channel-1]-1,color=backcolor,alpha=0.07)
+                    backcolor = color_mode_low
+                self.plotFigureAmplitude.axvspan(xmin=0,xmax=self.pulseCounter[self.active_channel-1]-1,color=backcolor,alpha=alpha_background)
             else: #If there are changes of the amplifier mode during the pulse
                 for a in range(numberOfAreas):
                     if value[a] == 1:
-                        backcolor = 'tab:red'
+                        backcolor = color_mode_high
                     else:
-                        backcolor = 'tab:green'
-                    self.plotFigureAmplitude.axvspan(xmin=switchPos[a]-0.5,xmax=switchPos[a+1]+0.5,color=backcolor,alpha=0.07)
-        else:
+                        backcolor = color_mode_low
+                    self.plotFigureAmplitude.axvspan(xmin=switchPos[a]-0.5,xmax=switchPos[a+1]+0.5,color=backcolor,alpha=alpha_background)
+        else: #Only one sample in the file
             if self.pulseMode[self.active_channel-1] == 1:
-                backcolor = 'tab:red'
+                backcolor = color_mode_high
             else:
-                backcolor = 'tab:green'
-            self.plotFigureAmplitude.axvspan(xmin=-0.5,xmax=0.5,color=backcolor,alpha=0.07)
+                backcolor = color_mode_low
+            self.plotFigureAmplitude.axvspan(xmin=-0.5,xmax=0.5,color=backcolor,alpha=alpha_background)
 
 
         
-        #Polar plot for one sample
+        #Polar plot for the currently selected sample
         for a in range(self.number_of_channels):
             if isMultiSample:
                 self.plotPolarPlot.plot([0,self.pulsePhase[a][self.active_sample]/180*3.1415],[0,self.pulseAmp[a][self.active_sample]])
@@ -1016,7 +1021,7 @@ class pulseInfoWindowObj:
         self.PolarPlotFigure.canvas.draw()
     
     def _calcBackground(self,mode):
-        '''Function to calculate the background color for amplifier mode'''
+        '''Function to calculate the background color for amplifier mode. This is necessary to minimize the number of boxes in the plot.'''
         numberOfSamples = len(mode)
         if numberOfSamples == 1:
             return 0, mode
