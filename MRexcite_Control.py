@@ -464,15 +464,15 @@ class ModulatorObj: #Contains all data and methods for Modulators
             byte_stream_add = [CB.prog + CB.chip0, a + self.start_address, data2, data1,
                                CB.prog + CB.we + CB.chip0, a + self.start_address, data2, data1,
                                CB.prog + CB.chip0, a + self.start_address, data2, data1]
-            byte_stream = byte_stream + byte_stream_add
+            byte_stream.extend(byte_stream_add)
             byte_stream_c=[] #This is used to reduce the number of times byte_stream is appended
             for c in range(2): #Run through all SRAMs
                 byte_stream_add = [CB.prog, a + self.start_address, 0, 0,
                                    CB.prog + CB.reset, a + self.start_address, 0, 0, #Reset counters before starting to fill SRAM.
                                    CB.prog, a + self.start_address, 0, 0]
-                byte_stream_c = byte_stream_c + byte_stream_add
+                byte_stream_c.extend(byte_stream_add)
                 byte_stream_b = [] #This is used to reduce the number of times byte_stream_c is appended
-                #byte_stream_b = [0]*(self.counter_max[a]*16)
+                
                 for b in range(self.counter_max[a]): #Run through all samples
                     if c==0: #First SRAM Chip
                         if self.counter_max[a]>1:
@@ -493,11 +493,11 @@ class ModulatorObj: #Contains all data and methods for Modulators
                                        CB.prog + CB.chip(c+1) + CB.we, a + self.start_address, data2, data1,
                                        CB.prog + CB.chip(c+1), a + self.start_address, data2, data1,
                                        CB.prog + CB.chip(c+1) + CB.clock, a + self.start_address, data2, data1]
-                    byte_stream_b = byte_stream_b + byte_stream_add
+                    byte_stream_b.extend(byte_stream_add)
                     #byte_stream_b[(b-1)*16:(b)*16+1]=byte_stream_add
 
-                byte_stream_c = byte_stream_c + byte_stream_b
-            byte_stream = byte_stream + byte_stream_c
+                byte_stream_c.extend(byte_stream_b)
+            byte_stream.extend(byte_stream_c)
         
 
         byte_stream = byte_stream + [CB.prog + CB.reset, 0, 0, 0] + [CB.prog, 0, 0, 0] +[0, 0, 0, 0]  #At the end, reset counters and send one clock, so that DAC are loaded with first state!

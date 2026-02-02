@@ -1,9 +1,9 @@
 function makeshim
 Nch=32;
-Nsamples = 1000;
+Nsamples = 60000;
 frequency = 1e5;
 trigger_count = 1000;
-filename = '.\shims\system_test\TestMode.mat';
+filename = '.\shims\system_test\TestMode60k.mat';
 
 % Make shim vector:
 if Nsamples>0
