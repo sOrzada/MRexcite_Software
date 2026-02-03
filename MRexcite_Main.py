@@ -5,6 +5,7 @@ import scipy
 # Constants
 COLOR_SAR_EXCEEDED = '#FF0000'
 COLOR_SAR_OK = '#00FF00'
+COLOR_WARNING_SPI = '#FFEEEE'
 import numpy as np
 from time import sleep
 import os
@@ -258,6 +259,9 @@ class MainGUIObj:
         if checkSPI==0:
             print('Could not send via SPI!')
             status_text= status_text + '\n\n\n\t***!!!Could not connect to SPI!!!***'
+            self.status_text_box.config(bg=COLOR_WARNING_SPI)
+        else:
+            self.status_text_box.config(bg='#FFFFFF')
 
                 
         if MRexcite_Control.MRexcite_System.Unblank_Status==1:
