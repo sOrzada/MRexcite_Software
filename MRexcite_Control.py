@@ -169,7 +169,6 @@ class USB2SPIObj: #Contains all data and methods for USB2SPI hardware. (Communic
         #Open device with default Name
         self.devA = ft4222.openByDescription('FT4222 A')
         
-  
         #Configure Device for SPI (We allow different clock speeds according to config file)
         if config['SPI_config']['clock_divider'] == '8':
             print('SPI Clock divider: 8')
@@ -340,7 +339,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
                 yi=self.Cal1D[channel,amp_mode,:,2]
                 self.pchip_objects_phase[channel].append(scipy.interpolate.PchipInterpolator(xi,yi))
     
-    def prepare_mod_cal(self): #TODO: Check whether order in matrix is correct!
+    def prepare_mod_cal(self):
         '''This function prepares the matrix inversions for the Modulator calibrations.'''
         self.CalModInv = np.empty_like(self.CalMod) #Prepare array for inverted matrices
         for ch in range(self.number_of_channels):
@@ -385,13 +384,11 @@ class ModulatorObj: #Contains all data and methods for Modulators
         elif (maxAmp>1):
             amplitudes_in=[i/maxAmp for i in amplitudes_in]
 
-
-        #print('Initialize IQ-Lists...')
         self.amplitudes=amplitudes_in
         self.phases=phases_in
         self.I_values=[0]*self.number_of_channels
         self.Q_values=[0]*self.number_of_channels
-        #print('Calc_IQ...')
+
         for a in range(self.number_of_channels):
             if type(amplitudes_in[a]) is list: #Need to differentiate between cases with 1 and more elements.
                 self.counter_max[a]=len(amplitudes_in[a])
@@ -409,7 +406,6 @@ class ModulatorObj: #Contains all data and methods for Modulators
                 self.I_values[a]=int(np.real(cIQ))
                 self.Q_values[a]=int(np.imag(cIQ))
                 self.Amp_state[a]=state_in[a]
-        #print('Finished calculation')
 
     def calcIQ(self,amp,ph,channel,mode): #Calculate digital values including calibration
         '''This function translates a value for amplitude and phase into a complex I/Q value including normalization according to the calibrations.\n
@@ -437,7 +433,6 @@ class ModulatorObj: #Contains all data and methods for Modulators
             cplx = amp*np.exp(1j*np.pi/180*ph) * (pow(2,13)-back_off) # Complex value of input. Apply backoff so that the total digital value including zero offset remains in interval [0,2^14-1] 
             b = np.array([np.real(cplx),np.imag(cplx)]) #Vector with desired ideal I and Q value
             b_corrected = self.CalModInv[channel,mode,:,:].dot(b) #This should now be corrected.
-            #print(b_corrected)
             IQ=(pow(2,13)-1 + self.IQoffset_hybrid[channel][0]+ 1j*(pow(2,13)-1 +self.IQoffset_hybrid[channel][1])) + b_corrected[0]+1j*b_corrected[1] #Complete correction.
         
         
@@ -498,8 +493,6 @@ class ModulatorObj: #Contains all data and methods for Modulators
                                        CB.prog + CB.chip(c+1), a + self.start_address, data2, data1,
                                        CB.prog + CB.chip(c+1) + CB.clock, a + self.start_address, data2, data1]
                     byte_stream_b.extend(byte_stream_add)
-                    #byte_stream_b[(b-1)*16:(b)*16+1]=byte_stream_add
-
                 byte_stream_c.extend(byte_stream_b)
             byte_stream.extend(byte_stream_c)
         
@@ -516,7 +509,7 @@ class EnableObj: #Contains all data and methods for the Enable Board. (Enable Am
     '''This Object represents the Enable Board. \n
     It enables the two amplifier racks (switches the power distribution on).\n
     It sets the RF switch either to the Siemens System or to MRexcite.'''
-    #Note to self: Make sure all amplifiers are disabled and RF is switched back to Siemens when software is closed!
+
     RF_Switch=0
     Amps1=0
     Amps2=0
@@ -692,7 +685,6 @@ class TriggerObj: #Contains all data and methods for the Trigger Board. (Samplin
 
     def calculate_sampling_rate(self):
         self.sampling_rate = 5e6/self.clock_divider
-        #print('Sampling Rate: ' + str(self.sampling_rate/1000) + ' kHz')
 
     def return_byte_stream(self):
         CB=ControlByteObj()
