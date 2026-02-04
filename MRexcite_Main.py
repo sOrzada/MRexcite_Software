@@ -29,14 +29,22 @@ class MainGUIObj:
         self.MainWindow = Tk()
         self.MainWindow.title('MRexcite Control')
         self.MainWindow.config(width=1200, height=600)
-        self.MainWindow.resizable(False,False)
-        self.MainWindow.iconbitmap(os.path.dirname(__file__) + r'\images\MRexcite_logo.ico')
-        self.MainWindow.protocol('WM_DELETE_WINDOW', self.end_Software) #This is important: If the software is ended, we need to call a function that resets to a safe state (Siemens)
+        self.MainWindow.resizable(False, False)
+        icon_path = os.path.join(os.path.dirname(__file__), 'images', 'MRexcite_logo.ico')
+        try:
+            if os.path.exists(icon_path):
+                self.MainWindow.iconbitmap(icon_path)
+            else:
+                # optional: log missing icon
+                print('Icon not found:', icon_path)
+        except Exception as e:
+            print('Could not set icon:', e)
+        self.MainWindow.protocol('WM_DELETE_WINDOW', self.end_Software)
         self.menu_bar()
         self.place_buttons()
-        
-        self.status_text_box = scrolledtext.ScrolledText(self.MainWindow, width = 55, height =30)
-        self.status_text_box.place(x=700,y=50)
+
+        self.status_text_box = scrolledtext.ScrolledText(self.MainWindow, width=55, height=30)
+        self.status_text_box.place(x=700, y=50)
 
         #The following could be used to display SAR. There is no connection to the SAR supervision System yet.
         #self.SARDisplay=SARSupervisionDisplyObj(self.MainWindow)
