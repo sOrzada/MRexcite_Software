@@ -266,7 +266,7 @@ class MainGUIObj:
         checkSPI=MRexcite_Control.MRexcite_System.SetSystemState()
         if checkSPI==0:
             print('Could not send via SPI!')
-            status_text= status_text + '\n\n\n\t***!!!Could not connect to SPI!!!***'
+            status_text= status_text + '\n\n\n\t***!!! Could not connect to SPI !!!***'
             self.status_text_box.config(bg=COLOR_WARNING_SPI)
         else:
             self.status_text_box.config(bg='#FFFFFF')
@@ -280,6 +280,11 @@ class MainGUIObj:
                     
 
         self.status_text_box.insert('1.0',status_text)
+        if checkSPI==0:
+            pos=self.status_text_box.index('end-1c linestart')
+            self.status_text_box.tag_add('alert',pos,'end')
+            self.status_text_box.tag_config('alert',foreground='red', background='#FFFFFF', font='Segoe 14 bold')
+
         self.status_text_box.config(state=DISABLED)    
 
     def openFile(self): #Open a file that contains all settings and pulses from a previous session.
