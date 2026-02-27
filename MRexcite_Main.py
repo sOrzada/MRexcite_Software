@@ -324,9 +324,9 @@ class MainGUIObj:
         if 'shim' in data:
             shim_data = data['shim']
             if isinstance(shim_data, np.ndarray):
-                if shim_data.ndim == 3:
+                if shim_data.ndim == 3: #Multiple shims in file
                     MRexcite_Control.MRexcite_System.Modulator.set_amplitudes_phases_state(shim_data[:,0,:].tolist(),shim_data[:,1,:].tolist(),(shim_data[:,2,:].astype(int)).tolist())
-                elif shim_data.ndim == 2:
+                elif shim_data.ndim == 2: #Single shim in file
                     MRexcite_Control.MRexcite_System.Modulator.set_amplitudes_phases_state(shim_data[:,0].tolist(),shim_data[:,1].tolist(),(shim_data[:,2].astype(int)).tolist())
                 else:
                     print('Shim has the wrong number of dimensions.')
