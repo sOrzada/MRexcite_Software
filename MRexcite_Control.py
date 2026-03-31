@@ -49,12 +49,13 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
         '''Enables the unblank of the modulators.'''
         add = kwargs.get('add',0) #Can enable system and optionally light up one address.
         self.Unblank_Status=1
-        self.SPI.send_bitstream(bytes([128,add,0,0]))
-
+        self.SPI.send_bitstream(bytes([0,0,0,0])) #This is to ensure that the system stays disabled if the SPI2Parallel Module has a shift
+        self.SPI.send_bitstream(bytes([128,add,0,0])) 
     def disable_system(self):
         '''Resets the unblank to make sure, no signal can be send.'''
         self.Unblank_Status=0
         try:
+            self.SPI.send_bitstream(bytes([0,0,0,0]))#This is to ensure that the system stays disabled if the SPI2Parallel Module has a shift.
             self.SPI.send_bitstream(bytes([0,0,0,0]))
         except:
             print('Error: Could not transmit via SPI!')
@@ -275,6 +276,14 @@ class ModulatorObj: #Contains all data and methods for Modulators
             self.read_1D_Cal() #Read the 1D linearity calibration data from file.
         except:
             print(f'Could not open 1D Linearity calibration file: {self.f_name_Cal1D}. Falling back to generic calibration data.')
+        
+        #Initialize Variables for Cable Calibration
+        self.f_name_CalCable = os.path.dirname(__file__) + '/' + config['Calibration']['Calibration_File_Cable']
+        self.cableCal = [0]*self.number_of_channels
+        try:
+            self.read_cable_Cal()
+        except:
+            print(f'Could not open 1D Linearity calibration file: {self.f_name_CalCable}. Falling back to generic calibration data.')
     
     def read_IQ_offset(self):
         '''Reads the IQ offset from calibration file which is specified in the config file.'''
@@ -292,6 +301,14 @@ class ModulatorObj: #Contains all data and methods for Modulators
             for row in reader:  #Read total file row by row. First value is I offset, second value is Q offset.
                 self.IQoffset_hybrid[a][0]=int(row[0])
                 self.IQoffset_hybrid[a][1]=int(row[1])
+                a=a+1
+    def read_cable_Cal(self):
+        '''Reads the Cable Calibration file.'''
+        with open(self.f_name_CalCable,'r') as f:
+            reader = csv.reader(f, delimiter = ',')
+            a=0
+            for row in reader:
+                self.cableCal[a]=int(row[0])
                 a=a+1
 
     def read_1D_Cal(self):
@@ -413,6 +430,10 @@ class ModulatorObj: #Contains all data and methods for Modulators
         "phase is a single phase in degrees.\n
         "channel" specifies for which channel this sample is. This is necessary to use the correct calibration values.\n
         "mode" specifies which state the amplifier is in.'''
+
+        #Phase correction for cable length differences:
+        ph = ph + self.cableCal[channel]
+
         back_off=192 #digital back-off to account for 0 point offset in full amplitude.
         if MRexcite_System.RFprepModule.Status=='Full': #Corrections for Full Modulation
             # Order of operation for correction:
@@ -602,7 +623,7 @@ class RFprepObj: #Contains all data and methods for the RF Preparation Board. (P
         if gain_in <= 0:
             self.gain_data=abs(gain_in)
         else:
-            self.gain_data=self.maxgain-gain_in + 128
+            self.gain_data=self.maxgain-gain_in + 128 #The amplifier is connected to bit 8, the attenuators to 1-5
         self.Status='User Defined'
         self.gain=gain_in
         
