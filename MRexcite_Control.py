@@ -308,9 +308,9 @@ class ModulatorObj: #Contains all data and methods for Modulators
             reader = csv.reader(f, delimiter = ',')
             a=0
             for row in reader:
-                self.cableCal[a]=int(row[0])
+                self.cableCal[a]=float(row[0])
                 a=a+1
-
+            
     def read_1D_Cal(self):
         '''Reads the 1D calibration data file which is specified in the config file.'''
         self.Cal1D = np.load(self.f_name_Cal1D)
@@ -432,7 +432,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
         "mode" specifies which state the amplifier is in.'''
 
         #Phase correction for cable length differences:
-        ph = ph + self.cableCal[channel]
+        ph = ph - self.cableCal[channel]
 
         back_off=192 #digital back-off to account for 0 point offset in full amplitude.
         if MRexcite_System.RFprepModule.Status=='Full': #Corrections for Full Modulation
