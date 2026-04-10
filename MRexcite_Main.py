@@ -937,7 +937,7 @@ class pulseInfoWindowObj:
         Button_next.place(x=x_center+50,y=y_center, anchor='center')
     
     def sampleSelectInit(self,x_center,y_center):
-        '''Initializes the channel selection interface at the coordinates specified by x_center and y_center.'''
+        '''Initializes the sample selection interface at the coordinates specified by x_center and y_center.'''
         Button_prev = Button(self.PulseWindow, width=3,height=1, text='<', command=lambda: self.sampleSelect(-1))
         Button_next = Button(self.PulseWindow, width=3,height=1, text='>', command=lambda: self.sampleSelect(+1))
         self.label_sample = Label(self.PulseWindow, height=1, width=6, text=str(self.active_sample), relief='sunken', bg='white')
@@ -1057,6 +1057,7 @@ class pulseInfoWindowObj:
     def closeWindow(self):
         '''Function to close the Pulse Info window.'''
         self.PulseWindow.destroy()
+
 MainGUI=MainGUIObj()
 MainGUI.start_main_GUI()
 MainGUI.MainWindow.mainloop()

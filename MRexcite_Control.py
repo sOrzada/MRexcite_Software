@@ -138,11 +138,6 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
             return 0
 
 ### Helper Classes ###
-class PulseObj:
-    '''This is a Pulse Object for saving/loading pulses to/from files. Not implemented. For future use?'''
-    Amplitudes=[]
-    Phases=[]
-    States=[]
 
 class ControlByteObj: #Contains the control bits. Select the state and add for complete control byte. I introduced this for better readability of code.
     '''This class contains some constants that make the code in this module more readable.'''

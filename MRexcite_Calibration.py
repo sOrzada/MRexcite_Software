@@ -173,7 +173,7 @@ class CalibrateZeroObj:
         self.set_Modulators()
     
     def set_Modulators(self):
-        '''Sets the modulators by transmitting through SPI-Interface. Uses the SPI-object from the STASIS System.'''
+        '''Sets the modulators by transmitting through SPI-Interface. Uses the SPI-object from the MRexcite System.'''
         CB=MRexcite_Control.ControlByteObj 
         MRexcite_Control.MRexcite_System.Modulator.IQoffset = self.IQoffset
         MRexcite_Control.MRexcite_System.Modulator.set_amplitudes_phases_state(self.amplitudes,self.phases,self.states)
@@ -263,7 +263,7 @@ class CalibrateLinearity1DObj:
         R2.place(x=x_start,y=y_start+20,anchor=W)
     
     def init_dig_value_select(self, x_center, y_center): #Initialize Buttons and Label for Digital Value Selection
-        '''Initializes the channel selection interface at the coordinates specified by x_center and y_center.'''
+        '''Initializes the digital value selection interface at the coordinates specified by x_center and y_center.'''
         Caption1 = Label(self.WindowCalLin, height=1, width=20, text='Digital Value Selector')
         Caption1.place(x=x_center,y=y_center-30, anchor=CENTER)
         Button_prev = Button(self.WindowCalLin, width=3,height=1, text='<', command=lambda: self.dig_value_select(-1))
@@ -562,7 +562,7 @@ class ModulatorCalibrationObj:
         self.Button_Unblank.place(x=x_center,y=y_center,anchor=CENTER)
 
     def init_value_select(self, x_center:int, y_center:int): #Initialize Buttons and Label for Digital Value Selection
-        '''Initializes the channel selection interface at the coordinates specified by x_center and y_center.'''
+        '''Initializes the value selection interface at the coordinates specified by x_center and y_center.'''
         Caption1 = Label(self.WindowCalMod, height=1, width=20, text='Digital Value Selector')
         Caption1.place(x=x_center,y=y_center-30, anchor=CENTER)
         Button_prev = Button(self.WindowCalMod, width=3,height=1, text='<', command=lambda: self.value_select(-1))
