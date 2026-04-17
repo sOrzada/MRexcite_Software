@@ -114,6 +114,7 @@ class MainGUIObj:
         self.Image_Button_Off = PhotoImage(file=r'.\Images\MRx_Off.png')
         self.Image_Button_Toggle_Right = PhotoImage(file=r'.\Images\Toggle_right.png')
         self.Image_Button_Toggle_Left = PhotoImage(file=r'.\Images\Toggle_left.png')
+        self.Image_Button_Toggle_Center = PhotoImage(file=r'.\Images\Toggle_center.png')
         
         self.ButtonSystemOn = Button(self.MainWindow,image=self.Image_Button_Off,bd=0,command=self.switch_system)
         self.ButtonSystemOn.place(x=200,y=100,anchor=CENTER)
@@ -154,6 +155,7 @@ class MainGUIObj:
         self.update_status()
 
     def UnblankClick(self):
+        '''This is the function for the unblank button.'''
         if MRexcite_Control.MRexcite_System.EnableModule.RF_Switch==1: #Enabling Unblank is only allowed if system is switched to MRexcite.
             if MRexcite_Control.MRexcite_System.Unblank_Status==0:
                 MRexcite_Control.MRexcite_System.Unblank_Status=1
@@ -162,6 +164,7 @@ class MainGUIObj:
         self.update_status()
 
     def switch_OSC(self):
+        '''This is the function for the toggle switch to select the Trigger input.'''
         if MRexcite_Control.MRexcite_System.TriggerModule.osc_select==0:
             MRexcite_Control.MRexcite_System.TriggerModule.osc_select=1
         else:
@@ -169,13 +172,24 @@ class MainGUIObj:
         self.update_status()
 
     def switch_Rx(self):
+        '''This is the function for the toggle switch to select the reception path of the system.'''
         if MRexcite_Control.MRexcite_System.EnableModule.RF_Switch==1:
             if MRexcite_Control.MRexcite_System.OpticalModule.select_Rx==0:
                 MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=1
                 MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on=1
-            else:
+                MRexcite_Control.MRexcite_System.RxSwitchModule.selectRx=1
+            elif MRexcite_Control.MRexcite_System.OpticalModule.select_Rx==1:
                 MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=0
+                MRexcite_Control.MRexcite_System.RxSwitchModule.selectRx=0
                 MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on=0
+            else: #This is the case, when automatic Rx path switching is enabled. This can only be the case if an approriate shim file is loaded.
+                answer=askyesno('Change Rx','Do you really want to disable automatic switching of Rx? You will have to reload the shim file to turn it back on.')
+                if answer: #In this case revert to local coil Rx
+                    MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=0
+                    MRexcite_Control.MRexcite_System.RxSwitchModule.selectRx=0
+                    MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on=0
+                else:
+                    pass
         self.update_status()
 
     def update_status(self):
@@ -200,6 +214,7 @@ class MainGUIObj:
             MRexcite_Control.MRexcite_System.EnableModule.disable_All()
             self.ButtonSystemOn.config(image=self.Image_Button_Off)
             MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=0
+            MRexcite_Control.MRexcite_System.RxSwitchModule.selectRx=0
             MRexcite_Control.MRexcite_System.Unblank_Status=0
             status_text=status_text + '*Siemens* System is currently enabled.\n\n'
         
@@ -208,9 +223,13 @@ class MainGUIObj:
         if MRexcite_Control.MRexcite_System.OpticalModule.select_Rx==0:
             status_text = status_text + 'Receiving with *LOCAL* coils.\n\n'
             self.ButtonRxSelect.config(image=self.Image_Button_Toggle_Left)
-        else:
+        elif MRexcite_Control.MRexcite_System.OpticalModule.select_Rx==1:
             self.ButtonRxSelect.config(image=self.Image_Button_Toggle_Right)
             status_text = status_text + 'Receiving with *BODY* coil.\n\n'
+        else:
+            self.ButtonRxSelect.config(image=self.Image_Button_Toggle_Center)
+            status_text = status_text + 'Automatic switching of Rx enabled.\n\n'
+
         
         #Amplifier Status
         if MRexcite_Control.MRexcite_System.EnableModule.Amps1==1 & MRexcite_Control.MRexcite_System.EnableModule.Amps2==1:
@@ -386,9 +405,32 @@ class MainGUIObj:
             rx=data['rx']
             if isinstance(rx,int):
                 MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=rx
+                MRexcite_Control.MRexcite_System.RxSwitchModule.setBitPattern(rx)
+                
+                #Switch the Pre-Amps into the correct state:
+                if rx == 0:
+                    MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on=0
+                else:
+                    MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on=1
+
+            elif isinstance(rx,np.ndarray):
+                MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=2
+                MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on=1
+                try:
+                    MRexcite_Control.MRexcite_System.RxSwitchModule.setBitPattern(rx)
+                except:
+                    print('Error: Could not load rx from shim file!')
             else:
                 pass
         
+        if 'rx_trigger_input' in data:
+            rx_trigger_input = data('rx_trigger_input')
+            if isinstance(rx_trigger_input,int):
+                if rx_trigger_input==1:
+                    MRexcite_Control.MRexcite_System.RxSwitchModule.trigger_source=1
+                else:
+                    MRexcite_Control.MRexcite_System.RxSwitchModule.trigger_source=0
+
         #Update Status.
         self.update_status()
         MRexcite_Control.MRexcite_System.SetAll()

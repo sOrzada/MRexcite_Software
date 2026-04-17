@@ -1,9 +1,9 @@
 function makeshim
 Nch=32;
-Nsamples = 60000;
+Nsamples = 10;
 frequency = 1e5;
 trigger_count = 1000;
-filename = '.\shims\system_test\TestMode60k.mat';
+filename = '.\shims\system_test\Test_rx.mat';
 
 % Make shim vector:
 if Nsamples>0
@@ -36,8 +36,9 @@ OSCbit=1;
 % Set trigger. Frequency in Hz and number of triggers. Set to [] for
 % feedthrough.
 trigger = [frequency,trigger_count];
+rx=2
 
-save(filename,'shim','gain')%,'OSCbit','trigger')
+save(filename,'shim','gain','rx')%,'OSCbit','trigger')
 
 function out=CP_shim32
 phase=[];

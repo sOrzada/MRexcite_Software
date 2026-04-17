@@ -33,6 +33,9 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
         
         if config['DEFAULT']['Trigger_Module'] == 'true':
             self.TriggerModule = TriggerObj(config)
+        
+        if config['DEFAULT']['RxSwitch_Module'] == 'true':
+            self.RxSwitchModule = RxSwitchObj(config)
 
  
         try:
@@ -108,7 +111,8 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
         bytestream_optical = self.OpticalModule.return_byte_stream()
         bytestream_RFprep = self.RFprepModule.return_byte_stream()
         bytestream_enable = self.EnableModule.return_byte_stream()
-        bytestream=bytestream_trigger+bytestream_optical+bytestream_RFprep+bytestream_enable+bytes([CP.enable*self.Unblank_Status,0,0,0]) #The last part makes sure the system is not in "program state"
+        bytestream_Rx = self.RxSwitchModule.return_bytestream()
+        bytestream=bytestream_trigger+bytestream_optical+bytestream_RFprep+bytestream_enable+bytestream_Rx+bytes([CP.enable*self.Unblank_Status,0,0,0]) #The last part makes sure the system is not in "program state"
         try:
             self.SPI.send_bitstream(bytestream)
             return 1
@@ -125,10 +129,11 @@ class MRexcite_SystemObj: #This Object will contain all other hardware specific 
         bytestream_optical = self.OpticalModule.return_byte_stream()
         bytestream_RFprep = self.RFprepModule.return_byte_stream()
         bytestream_enable = self.EnableModule.return_byte_stream()
+        bytestream_Rx = self.RxSwitchModule.return_bytestream()
         #print('Assemble bytes for modulators...')
         bytestream_modulators = self.Modulator.return_byte_stream()
         #print('Append all...')
-        bytestream=bytestream_trigger+bytestream_optical+bytestream_RFprep+bytestream_enable+bytestream_modulators + bytes([CP.enable*self.Unblank_Status,0,0,0]) #The last part is to make sure that the modulators are not in programm state anymore.
+        bytestream=bytestream_trigger+bytestream_optical+bytestream_RFprep+bytestream_enable+bytestream_Rx+bytestream_modulators + bytes([CP.enable*self.Unblank_Status,0,0,0]) #The last part is to make sure that the modulators are not in programm state anymore.
         #print('start transmitting...')
         try:
             self.SPI.send_bitstream(bytestream)
@@ -584,7 +589,12 @@ class OpticalObj: #Contains all data and methods for the Optical Board (controls
     def return_byte_stream(self):
         '''Returns a byte stream that can be used to programm the current state into the hardware.'''
         CB=ControlByteObj()
-        data=2*self.pre_amp_on + 4*self.pre_amp_on_always + 8*self.Tx_always_on + 16*self.det_always + 32*self.det_never + 64*self.select_Rx
+        if self.select_Rx==1: #This is necessary since we have introduced the new state "2" for automatic switching of Rx channels.
+            select_Rx_send=1
+        else:
+            select_Rx_send=0
+
+        data=2*self.pre_amp_on + 4*self.pre_amp_on_always + 8*self.Tx_always_on + 16*self.det_always + 32*self.det_never + 64*select_Rx_send
         byte_stream=[CB.prog,0,0,0,
                      CB.prog,self.address,0,data,
                      CB.prog+CB.we,self.address,0,data,
@@ -646,7 +656,111 @@ class RFprepObj: #Contains all data and methods for the RF Preparation Board. (P
                      CB.prog,self.address,0,data,
                      CB.prog,0,0,0]
         return bytes(byte_stream)
+
+class RxSwitchObj:
+    selectRx = 0 #Selection which Rx signal should be used: 0 is Local Coil, 1 is Body Coil, 2 is switching.
+    bit0 = 1
+    bit1 = 2
+    bit2 = 4
+    trigger_source = 0
+    def __init__(self,config):
+        '''Load Configuration data.'''
+        self.address = int(config['RxSwitch_Module']['address'])
+        self.counter_max = 1
+        self.bitPattern = 0
+    def setBitPattern(self,inputArray: np.ndarray):
+        '''Set the bit patterns for the three outputs.'''
+        number_of_dimensions = inputArray.ndim
+        self.bitPattern = 0
+        
+        #If inputArray is a scalar:
+        if number_of_dimensions==0:
+            self.counter_max = 1
+            if inputArray == 0:
+                self.bitPattern = 0
+            else:
+                self.bitPattern = 1+2+4+8
+        
+        #Only one value for each of the three output channels:
+        if number_of_dimensions==1 & inputArray.size==3:
+            self.bitPattern = 0
+            self.counter_max = 1
+            for a in range(3):
+                if inputArray[a] == 0:
+                    pass
+                else:
+                    self.bitPattern = self.bitPattern + pow(2,a)
+        
+        #If a vector is provided with a number of elements other than 3:
+        if number_of_dimensions==1 & inputArray.size!=3:
+            self.bitPattern=[0]*inputArray.size
+            for a in range(inputArray.size):
+                if inputArray[a]==0:
+                    pass
+                else:
+                    self.bitPattern[a]=1+2+4
+        
+        #Multiple values for each of the four channels:
+        if number_of_dimensions==2:
+            pattern_length=np.shape(inputArray)[1]
+            self.bitPattern = [0]*pattern_length
+            self.counter_max = pattern_length
+            for b in range(pattern_length):
+                tmp = 0
+                for a in range(3):
+                    if inputArray[a,b]==0: #If we do it this way, we prevent errors if the user made a file with other values than 0 or 1.
+                        pass
+                    else:
+                        tmp = tmp + pow(2,a)
+                self.bitPattern[b]=tmp
     
+    def return_bytestream(self):
+        '''Return bytestream for SPI transmission, containing all necessary data.'''
+        CB = ControlByteObj() #For improved readability use the object CB to generate the control bits.
+        byte_stream = [CB.prog, 0 , 0, 0]*1000 #Make sure the switching to programming mode is finished.
+        
+        #Write Counter Max:
+        data1=self.counter_max%256
+        data2=math.floor(self.counter_max/256)
+        byte_stream_add = [CB.prog + CB.chip0, self.address, data2, data1,
+                           CB.prog + CB.we + CB.chip0, self.address, data2, data1,
+                           CB.prog + CB.chip0, self.address, data2, data1]
+        byte_stream.extend(byte_stream_add)
+
+        #Write trigger source bit into latch
+        if self.trigger_source==0:
+            data1=1
+        else:
+            data1=0
+        data2=0
+        byte_stream_add = [CB.prog + CB.chip2, self.address, data2, data1,
+                           CB.prog + CB.we + CB.chip2, self.address, data2, data1,
+                           CB.prog + CB.chip2, self.address, data2, data1]
+        byte_stream.extend(byte_stream_add)
+
+        #Reset Counters
+        byte_stream_add = [CB.prog, self.address, 0, 0,
+                           CB.prog + CB.reset, self.address, 0, 0,
+                           CB.prog, self.address, 0, 0]
+        byte_stream.extend(byte_stream_add)
+
+        #Write data into RAM
+        for a in range(self.counter_max):
+            if self.counter_max==1:
+                data2=self.bitPattern
+            else:
+                data1=self.bitPattern[a]
+            data2=0
+            byte_stream_add = [CB.prog + CB.chip1, self.address, data2, data1,
+                              CB.prog + CB.we + CB.chip1, self.address, data2, data1,
+                              CB.prog + CB.chip1, self.address, data2, data1,
+                              CB.prog + CB.chip1 + CB.clock, self.address,data2, data1]
+            byte_stream.extend(byte_stream_add)
+    
+        byte_stream = byte_stream + [CB.prog + CB.reset, 0, 0, 0] + [CB.prog, 0, 0, 0] +[0, 0, 0, 0]  #At the end, reset counters.
+        data=bytes(byte_stream)
+        return data
+
 class TriggerObj: #Contains all data and methods for the Trigger Board. (Sampling rates for Modulators).
     '''This Object represents the hardware of the Trigger Board.\n
     The Trigger Board detects OSCbits from the MRI system and either transmits them to the modulators, or starts a gated oscillator to produce a user defined number of trigger pulses at a user defined sampling rate.'''
