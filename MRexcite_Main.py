@@ -178,9 +178,11 @@ class MainGUIObj:
                 MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=1
                 MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on=1
                 MRexcite_Control.MRexcite_System.RxSwitchModule.selectRx=1
+                MRexcite_Control.MRexcite_System.RxSwitchModule.setBitPattern(np.ndarray(1))
             elif MRexcite_Control.MRexcite_System.OpticalModule.select_Rx==1:
                 MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=0
                 MRexcite_Control.MRexcite_System.RxSwitchModule.selectRx=0
+                MRexcite_Control.MRexcite_System.RxSwitchModule.setBitPattern(np.ndarray(0))
                 MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on=0
             else: #This is the case, when automatic Rx path switching is enabled. This can only be the case if an approriate shim file is loaded.
                 answer=askyesno('Change Rx','Do you really want to disable automatic switching of Rx? You will have to reload the shim file to turn it back on.')
@@ -403,7 +405,8 @@ class MainGUIObj:
         #Check whether there are settings for reception. If so, apply.
         if 'rx' in data:
             rx=data['rx']
-            if isinstance(rx,int):
+            rx=np.squeeze(rx)
+            if rx.size==1:
                 MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=rx
                 MRexcite_Control.MRexcite_System.RxSwitchModule.setBitPattern(rx)
                 
@@ -416,6 +419,7 @@ class MainGUIObj:
             elif isinstance(rx,np.ndarray):
                 MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=2
                 MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on=1
+                MRexcite_Control.MRexcite_System.RxSwitchModule.setBitPattern(rx)
                 try:
                     MRexcite_Control.MRexcite_System.RxSwitchModule.setBitPattern(rx)
                 except:

@@ -3,7 +3,7 @@ Nch=32;
 Nsamples = 10;
 frequency = 1e5;
 trigger_count = 1000;
-filename = '.\shims\system_test\Test_rx.mat';
+filename = '.\shims\system_test\Test_rx_vec.mat';
 
 % Make shim vector:
 if Nsamples>0
@@ -15,6 +15,7 @@ if Nsamples>=1
     for a=1:Nsamples
         shim(:,1,a)=abs(0.7*sin(a/100*pi)); %Amplitude either in V (for high gain) or 0 to 1 for low gain.
         shim(:,2,a)=a/10; %Phase in degree.
+        rx(a)=mod(a,2);
         if shim(:,1,a)>0.35
             shim(:,3,a)=1; %Amplifier mode (0: Low power, 1: high power).
         else
@@ -36,7 +37,7 @@ OSCbit=1;
 % Set trigger. Frequency in Hz and number of triggers. Set to [] for
 % feedthrough.
 trigger = [frequency,trigger_count];
-rx=2
+%rx=2
 
 save(filename,'shim','gain','rx')%,'OSCbit','trigger')
 
