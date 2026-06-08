@@ -178,11 +178,11 @@ class MainGUIObj:
                 MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=1
                 MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on=1
                 MRexcite_Control.MRexcite_System.RxSwitchModule.selectRx=1
-                MRexcite_Control.MRexcite_System.RxSwitchModule.setBitPattern(np.ndarray(1))
+                MRexcite_Control.MRexcite_System.RxSwitchModule.setBitPattern(np.array(1))
             elif MRexcite_Control.MRexcite_System.OpticalModule.select_Rx==1:
                 MRexcite_Control.MRexcite_System.OpticalModule.select_Rx=0
                 MRexcite_Control.MRexcite_System.RxSwitchModule.selectRx=0
-                MRexcite_Control.MRexcite_System.RxSwitchModule.setBitPattern(np.ndarray(0))
+                MRexcite_Control.MRexcite_System.RxSwitchModule.setBitPattern(np.array(0))
                 MRexcite_Control.MRexcite_System.OpticalModule.pre_amp_on=0
             else: #This is the case, when automatic Rx path switching is enabled. This can only be the case if an approriate shim file is loaded.
                 answer=askyesno('Change Rx','Do you really want to disable automatic switching of Rx? You will have to reload the shim file to turn it back on.')
