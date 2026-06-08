@@ -694,6 +694,7 @@ class RxSwitchObj:
         #If a vector is provided with a number of elements other than 3:
         if number_of_dimensions==1 and inputArray.size!=3:
             self.bitPattern=[0]*inputArray.size
+            self.counter_max = inputArray.size
             for a in range(inputArray.size):
                 if inputArray[a]==0:
                     pass
@@ -747,7 +748,7 @@ class RxSwitchObj:
         #Write data into RAM
         for a in range(self.counter_max):
             if self.counter_max==1:
-                data2=self.bitPattern
+                data1=self.bitPattern
             else:
                 data1=self.bitPattern[a]
             data2=0
