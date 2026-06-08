@@ -395,7 +395,7 @@ class ModulatorObj: #Contains all data and methods for Modulators
 
         if MRexcite_System.RFprepModule.Status=='Full':
             pass
-        elif (maxAmp>1) & (type(amplitudes_in[1]) is list):
+        elif (maxAmp>1) and (type(amplitudes_in[1]) is list):
             for a in range(self.number_of_channels):
                 amplitudes_in[a]=[i/maxAmp for i in amplitudes_in[a]]
         elif (maxAmp>1):
@@ -662,7 +662,7 @@ class RxSwitchObj:
     bit0 = 1
     bit1 = 2
     bit2 = 4
-    trigger_source = 0
+    trigger_source = 0 #Select source of trigger: 0 is trigger from Backplane (OSCbits etc.); 1 is trigger from SMB connector on board.
     def __init__(self,config):
         '''Load Configuration data.'''
         self.address = int(config['RxSwitch_Module']['address'])
@@ -682,7 +682,7 @@ class RxSwitchObj:
                 self.bitPattern = 1+2+4+8
         
         #Only one value for each of the three output channels:
-        if number_of_dimensions==1 & inputArray.size==3:
+        if number_of_dimensions==1 and inputArray.size==3:
             self.bitPattern = 0
             self.counter_max = 1
             for a in range(3):
@@ -692,7 +692,7 @@ class RxSwitchObj:
                     self.bitPattern = self.bitPattern + pow(2,a)
         
         #If a vector is provided with a number of elements other than 3:
-        if number_of_dimensions==1 & inputArray.size!=3:
+        if number_of_dimensions==1 and inputArray.size!=3:
             self.bitPattern=[0]*inputArray.size
             for a in range(inputArray.size):
                 if inputArray[a]==0:

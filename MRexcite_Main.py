@@ -234,13 +234,13 @@ class MainGUIObj:
 
         
         #Amplifier Status
-        if MRexcite_Control.MRexcite_System.EnableModule.Amps1==1 & MRexcite_Control.MRexcite_System.EnableModule.Amps2==1:
+        if MRexcite_Control.MRexcite_System.EnableModule.Amps1==1 and MRexcite_Control.MRexcite_System.EnableModule.Amps2==1:
             status_text = status_text + 'Amplifier Rack 1 and Rack 2 are switched *ON*.\n\n'
-        elif MRexcite_Control.MRexcite_System.EnableModule.Amps1==0 & MRexcite_Control.MRexcite_System.EnableModule.Amps2==0:
+        elif MRexcite_Control.MRexcite_System.EnableModule.Amps1==0 and MRexcite_Control.MRexcite_System.EnableModule.Amps2==0:
             status_text = status_text + 'Amplifier Rack 1 and Rack 2 are switched *OFF*.\n\n'
-        elif MRexcite_Control.MRexcite_System.EnableModule.Amps1==1 & MRexcite_Control.MRexcite_System.EnableModule.Amps2==0:
+        elif MRexcite_Control.MRexcite_System.EnableModule.Amps1==1 and MRexcite_Control.MRexcite_System.EnableModule.Amps2==0:
             status_text = status_text + 'Amplifier Rack 1 is switched *ON* and Rack 2 is switched *OFF*.\n\n'
-        elif MRexcite_Control.MRexcite_System.EnableModule.Amps1==0 & MRexcite_Control.MRexcite_System.EnableModule.Amps2==1:
+        elif MRexcite_Control.MRexcite_System.EnableModule.Amps1==0 and MRexcite_Control.MRexcite_System.EnableModule.Amps2==1:
             status_text = status_text + 'Amplifier Rack 1 is switched *OFF* and Rack 2 is switched *ON*.\n\n'
         
         #Trigger Status
